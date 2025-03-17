@@ -35,9 +35,15 @@ There's several local API endpoints that get set up:
 - Raster service [http://localhost:8082](http://localhost:8082)
 - OGC Features/Vector Tiles [http://localhost:8083](http://localhost:8083)
 - STAC FastAPI browser UI [http://localhost:8085](http://localhost:8085)
-
+---
 ## Exploring data
 
 Once the collections and items have been loaded you can have a quick look at the collections with the [browser UI](http://localhost:8085), but I'd recommend using the `maxar_example.ipynb` notebook to run some examples.
 
 This uses uses a basic `pydantic` model approach and comes with various methods to make it simpler to interact with the subset of Maxar collections.
+---
+## TO DO
+
+- Explore segementation and classification of images
+- Build a frontend app using TypeScript
+- Explore scrollytelling feasibility 
