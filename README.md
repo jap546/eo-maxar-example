@@ -41,7 +41,7 @@ There's several local API endpoints that get set up:
 
 Once the collections and items have been loaded you can have a quick look at the collections with the [browser UI](http://localhost:8085), but I'd recommend using the `maxar_example.ipynb` notebook to run some examples.
 
-This uses uses a basic `pydantic` model approach and comes with various methods to make it simpler to interact with the subset of Maxar collections.
+This uses a basic `pydantic` model approach and comes with various methods to make it simpler to interact with the subset of Maxar collections.
 
 ---
 ## TO DO
