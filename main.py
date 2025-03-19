@@ -19,8 +19,19 @@ def setup() -> None:
         item_type = file.split(".", maxsplit=1)[0]
         filename = file[:-4]
 
+        command = [
+            "pypgstac",
+            "load",
+            item_type,
+            str(path / filename),
+            "--dsn",
+            "postgresql://username:password@0.0.0.0:5439/postgis",
+            "--method",
+            "insert_ignore",
+        ]
+
         result = subprocess.run(
-            f"pypgstac load {item_type} {path / filename!s} --dsn postgresql://username:password@0.0.0.0:5439/postgis --method insert_ignore",  # noqa: S603
+            command,
             capture_output=True,
             text=True,
             check=False,
@@ -39,7 +50,6 @@ def setup() -> None:
         autocommit=True,
         options="-c search_path=pgstac,public -c application_name=pgstac",
     ) as conn, conn.cursor() as cursor:
-        # Add CONTEXT=ON
         pgstac_settings = """
             INSERT INTO pgstac_settings (name, value)
             VALUES ('context', 'on')
