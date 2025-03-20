@@ -6,6 +6,16 @@ Example repo for exploring Maxar open data locally based on the [eoAPI](https://
 - **OGC Features and Vector Tiles** API built on top of [https://github.com/developmentseed/tipg](https://github.com/developmentseed/tipg)
 - **A STAC Catalog browsing UI** based on the radiant earth browser : [https://github.com/radiantearth/stac-browser](https://github.com/radiantearth/stac-browser)
 
+
+<p align="center">
+  <img src="img/example.gif" alt="animated" />
+</p>
+
+<p align="center">
+  <img src="https://github.com/jap546/eo-maxar-example/blob/main/img/example.gif?raw=true" alt="animated" />
+</p>
+
+
 ---
 ## Getting started
 The simplest way to get started is using the pre-configured Docker file. Clone the repo and start the Docker application using `compose`:
