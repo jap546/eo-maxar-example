@@ -12,7 +12,7 @@ Example repo for exploring Maxar open data locally based on the [eoAPI](https://
 
 ---
 ## Getting started
-The simplest way to get started is using the pre-configured Docker file. Clone the repo and start the Docker application using `compose`:
+Simplest way is using the pre-configured Docker file. Clone the repo and start the Docker application using `compose`:
 
 ```
 git clone https://github.com/jap546/eo-maxar-example.git
@@ -20,12 +20,12 @@ cd eo-maxar-example
 docker compose up
 ```
 
-Install the python dependencies with `poetry`:
+Open a new terminal and install the python dependencies with `poetry`:
 ```
 poetry install
 ```
 
-Ensure the python interpreter is set for the newly installed `poetry` environment, then run the CLI command:
+Reload the terminal, then run the CLI command:
 ```
 setup
 ```
