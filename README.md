@@ -1,5 +1,5 @@
 ## Background
-Example repo for exploring Maxar open data locally based on the [eoAPI](https://github.com/developmentseed/eoAPI) project. Uses a collection of projects:
+Example repo for exploring Maxar open data locally based on [eoAPI](https://github.com/developmentseed/eoAPI). Uses a collection of projects:
 - **pgSTAC** database for accessing STAC collections & items in PostgreSQL - [https://github.com/stac-utils/pgstac](https://github.com/stac-utils/pgstac)
 - **STAC API** built on top of FastAPI [https://github.com/stac-utils/stac-fastapi](https://github.com/stac-utils/stac-fastapi)
 - **STAC Items And Mosaic Raster Tiles** API to create dynamic mosaics based on search queries, built on top of [https://github.com/stac-utils/titiler-pgstac](https://github.com/stac-utils/titiler-pgstac)
