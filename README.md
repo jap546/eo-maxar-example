@@ -51,6 +51,7 @@ This uses a basic `pydantic` model approach and comes with various methods to ma
 ## TO DO
 
 - Add unit tests with `pytest`
+- Add `pydantic` validation
 - Explore segementation and classification of images
 - Build a frontend app using TypeScript
 - Explore scrollytelling feasibility 
