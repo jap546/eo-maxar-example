@@ -20,12 +20,12 @@ cd eo-maxar-example
 docker compose up
 ```
 
-Open a new terminal and install the python dependencies with `poetry`:
+Open a new terminal and install the Python dependencies with [`poetry`](https://python-poetry.org/):
 ```
 poetry install
 ```
 
-Reload the terminal, then run the CLI command:
+Ensure the Python interpreter is set for the newly installed `poetry` environment, then run the CLI command:
 ```
 setup
 ```
@@ -52,6 +52,8 @@ This uses a basic `pydantic` model approach and comes with various methods to ma
 
 - Add unit tests with `pytest`
 - Add `pydantic` validation
+- More OOP structuring of `pydantic` models adhering to SOLID principles
+- Change detection pre vs post disaster: consider bands (multispectral, pano, does maxar offer SAR?), classifiers (XGBoost, CNN)
 - Explore segementation and classification of images
 - Build a frontend app using TypeScript
 - Explore scrollytelling feasibility 
