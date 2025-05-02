@@ -1,187 +1,127 @@
-[tool.poetry]
+[project]
 name = "eo-maxar-example"
-version = "0.0.1-dev"
-description = "Quick examples working with maxar data."
-authors = []
+version = "0.0.1"
+description = "Examples working with Maxar data using a local earth observation API."
+authors = [{ name = "Jordan Pinder", email = "jordan.pinder.dev@gmail.com" }]
 readme = "README.md"
-repository = "https://github.com.mcas.ms/jap546/eo-maxar-example"
+keywords = ['python']
+requires-python = ">=3.11,<4.0"
 classifiers = [
-    "Environment :: Web Environment",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
-    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-packages = [{ include = "eo_maxar" }]
-exclude = [
-    ".github",
-    ".flake8",
-    ".pylintrc",
-    "mypy.ini",
-    ".coveragerc",
-    "Makefile",
-    "scripts",
-    "tests",
+
+dependencies = [
+    "datetime>=5.5",
+    "geopandas>=1.0.1",
+    "geopy>=2.4.1",
+    "httpx>=0.28.1",
+    "ipykernel>=6.29.5",
+    "ipyleaflet>=0.19.2",
+    "psycopg>=3.2.7",
+    "psycopg-pool>=3.2.6",
+    "pydantic>=2.11.4",
+    "pydantic-core>=2.33.2",
+    "pypgstac>=0.9.6",
+    "pystac>=1.13.0",
+    "pystac-client>=0.8.6",
+    "shapely>=2.1.0",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<4.0"
-datetime = "^5.5"
-httpx = "^0.28.1"
-ipyleaflet = "^0.19.2"
-psycopg = {extras = ["pool"], version = "^3.2.5"}
-pypgstac = "^0.9.5"
-pystac = "^1.12.2"
-pystac-client = "^0.8.6"
-pydantic = "^2.10.6"
-pydantic-core = "^2.31.1"
-geopandas = "^1.0.1"
-shapely = "^2.0.7"
-geopy = "^2.4.1"
+[project.urls]
+Repository = "https://github.com/jap546/eo-maxar-example"
 
-
-
-[tool.poetry.group.dev.dependencies]
-ipykernel = "^6.20.2"
-# format
-black = "^24.4.2"
-isort = "^5.13.2"
-# lint
-ruff = "^0.2.1"
-# typecheck
-mypy = "^1.11.0"
-pandas-stubs = "^2.2.2.240603"
-typing-extensions = "^4.5.0"
-types-python-slugify = "^8.0.0.2"
-types-requests = "^2.28.11.13"
-
-[tool.poetry.plugins."console_scripts"]
+[project.scripts]
 setup = "main:setup"
 
-[tool.mypy]
-strict = true
-# explicit_package_bases = true
-namespace_packages = false
-ignore_missing_imports = true
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["eo_maxar"]
 
+[tool.setuptools]
+py-modules = ["eo_maxar"]
 
-[tool.coverage.report]
-show_missing = true
-# appl_under = 100
-exclude_also = [
-    "def __repr__",
-    "if self.debug:",
-    "if settings.DEBUG",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if 0:",
-    "if __name__ == .__main__.:",
-    "if TYPE_CHECKING:",
-    "class .*\\bProtocol\\):",
-    "@(abc\\.)?abstractmethod",
+[dependency-groups]
+dev = [
+    "pytest>=7.2.0",
+    "pre-commit>=2.20.0",
+    "mypy>=0.991",
+    "ruff>=0.11.5",
 ]
+
+[tool.mypy]
+files = ["eo_maxar"]
+disallow_untyped_defs = true
+disallow_any_unimported = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+show_error_codes = true
+namespace_packages = false
 
 [tool.ruff]
-lint.select = [
-    "A",   # flake8-builtins (redefinition of bultins)
-    "ANN", # flake8-annotations (type annotations are everywhere)
-    "ARG", # flake8-unused-arguments (unused argument in function/method/class/lambda)
-    "B",   # flake8-bugbear (bugs & design problems)
-    "B9",  # flake8-bugbear strict (bugs & design problems)
-    "BLE", # flake8-blind-except (no "except:" or "except Exception:")
-    # "COM", # flake8-commas (force trailing commas) -> unelegant
-    "C4",  # flake8-comprehensions (better list/set/dict comprehensions)
-    "C90", # McCabe (code complexity)
-    "D",   # pydocstyle (documentation style)
-    "DJ",  # flake8-django (practices on Django)
-    "DTZ", # flake8-datetimez (usage of unsafe naive datetime class)
-    "E",   # pycodestyle (violation of PEP-8)
-    "EM",  # flake8-errmsg (format error messages)
-    "EXE", # flake8-executable (executable permissions and shebangs)
-    "ERA", # eradicate (no commented-out code)
-    "F",   # pyflakes (invalid Python code)
-    "FBT", # flake8-boolean-trap (misusage of booleans in function declaration & calls)
-    "G",   # flake8-logging-format (logging format strings)
-    "I",   # isort (import order)
-    "ICN", # flake8-import-conventions (how certain packages should be imported or aliased)
-    # "INP", # flake8-no-pep420 (ban PEP-420 implicit namespace packages) -> long live implicit namespace packages!
-    "INT", # flake8-gettext (f-string resolved before function calls)
-    "ISC", # flake8-implicit-str-concat (string literal concatenation)
-    "N",   # pep8-naming (naming conventions)
-    "NPY", # NumPy-specific rules (e.g. deprecated-type-alias and legacy-random)
-    "PD",  # pandas-vet (pandas code)
-    "PIE", # flake8-pie (miscellaneous lints)
-    "PGH", # pygrep-hooks (miscellaneous lints, e.g. "use specific rule codes when using noqa")
-    "PL",  # Pylint (static code analyser)
-    "PT",  # flake8-pytest-style (style issues or inconsistencies with pytest-based tests)
-    "PTH", # flake8-use-pathlib (use of functions that can be replaced by pathlib module)
-    "PYI", # flake8-pyi (provide specializations for type hinting stub files)
-    "Q0",  # flake8-quotes (avoid escaping quotes)
-    "RSE", # flake8-raise (improvements for raise statements)
-    "RET", # flake8-return (check return values)
-    "RUF", # ruff-specific rules
-    "S",   # flake8-bandit (security)
-    "SIM", # flake8-simplify (tips to simplify the code)
-    "SLF", # flake8-self (private member access)
-    "T10", # flake8-debugger
-    "T20", # flake8-print (no print nor pprint)
-    "TCH", # flake8-type-checking (move import only intended for type-checking in "if TYPE_CHECKING" blocs)
-    "TID", # flake8-tidy-imports (ordonated imports)
-    "TRY", # tryceratops (exception handling AntiPatterns)
-    "UP",  # pyupgrade (upgrate syntax for newer versions of Python)
-    "YTT", # flake8-2020 (misuse of sys.version and sys.version_info)
-    "W",   # pycodestyle (violation of PEP-8)
-]
-lint.ignore = [
-    "ANN101",  # missing type annotation for self, but hinting self all the time is useless
-    "ANN102",  # missing type annotation for cls but hinting cls all the time is useless
-    "ANN401",  # disallows Any, but some elements should be Any when they are external
-    "B024",    # forces abstract classes to have at least one abstract method, but sometimes a class is virtually abstract
-    "D100",    # missing docstring in public module
-    "D101",    # missing docstring in public class
-    "D102",    # missing docstring in public method
-    "D103",    # missing docstring in public function
-    "D104",    # missing docstring in public package
-    "D105",    # docstrings on magic methods, useless docstrings are well known
-    "D107",    # missing docstring in __init__
-    "DTZ007",  # allow use of datetime.datetime without timezone
-    "DTZ011",  # naive datetime is used, but it's OK for the user to use it
-    "ERA001",  # commented-out code is OK in some cases
-    "E501",    # line size, but bug-bear already set it with a tolerance of 10% (B950)
-    "ISC001",
-    "PD901",   # allow use of `df` for dataframes
-    "PD003",   # allow .isna() and .isnull() for dataframes
-    "PD004",   # allow .notna() and .notnull() for dataframes
-    "PD010",   # allow use of .pivot_table() for dataframes
-    "PD015",   # allow use of .merge() for dataframes
-    "PGH003",  # ignore use of specific rule codes when using noqa
-    "PLR2004", # allow use of some magic constants
-    "T201",    # allow print statements where necessary
-    "TCH001",  # ignore import only for type-checking in "if TYPE_CHECKING" blocks
-    "TCH002",  # ignore type-checking suggestions, trust the devs
-    "UP007",   # ignore or-wise typing for py3.9 support
-    "UP035",   # allow use of typing.Callable
-]
-exclude = ["gunicorn_conf.py", "tests/", "scripts/"]
+target-version = "py312"
+line-length = 88
+fix = true
 
+[tool.ruff.lint]
+select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bandit
+    "S",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # mccabe
+    "C90",
+    # pycodestyle
+    "E", "W",
+    # pyflakes
+    "F",
+    # pygrep-hooks
+    "PGH",
+    # pyupgrade
+    "UP",
+    # ruff
+    "RUF",
+    # tryceratops
+    "TRY",
+]
+ignore = [
+    # DoNotAssignLambda
+    "E731",
+    "PLR0913",
+]
 
 [tool.ruff.lint.per-file-ignores]
-"docs/conf.py" = [
-    "A001", # redefine some builtins (like "copyright") is OK in docs
-]
+"tests/*" = ["S101"]
 
+[tool.ruff.format]
+preview = true
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.isort]
 known-first-party = ["eo_maxar"]
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
