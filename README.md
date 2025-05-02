@@ -12,34 +12,36 @@ Example repo for exploring Maxar open data locally. Uses a collection of project
 
 ---
 ## Getting started
-Simplest way is using the pre-configured Docker file. Clone the repo and start the Docker application using `compose`:
+Assumes you have installed [`docker`](https://www.docker.com/) and [`uv`](https://docs.astral.sh/uv).
 
+#### EO APIs
+Quickest way to get set up is to use the pre-configured Docker file.  Clone the repo, start your Docker daemon and start the API services:
 ```
 git clone https://github.com/jap546/eo-maxar-example.git
 cd eo-maxar-example
+open -a Docker
 docker compose up
 ```
 
-Open a new terminal and install the Python dependencies with [`poetry`](https://python-poetry.org/):
-```
-poetry install
-```
-
-Ensure the Python interpreter is set for the newly installed `poetry` environment, then run the CLI command:
-```
-setup
-```
-
-This will do three things:
-- unzip the `data/collections.json.zip` and `data/items.json.zip` files
-- run a `pypgstac` command to load each file into your dockerised `pgstac` database
-- make the `pgstac` context entension enabled
-
-There's several local API endpoints that get set up:
+Several API endpoints get set up:
 - STAC Metadata service [http://localhost:8081](http://localhost:8081)
 - Raster service [http://localhost:8082](http://localhost:8082)
 - OGC Features/Vector Tiles [http://localhost:8083](http://localhost:8083)
 - STAC FastAPI browser UI [http://localhost:8085](http://localhost:8085)
+
+#### Python dependencies
+Open a new terminal and install the Python dependencies with `uv`, activate the environment and run the CLI command:
+```
+uv sync --all-groups
+source .venv/bin/activate
+uv run setup
+```
+
+This runs `main.py::setup` which does do three things:
+- unzips the `data/collections.json.zip` and `data/items.json.zip` files
+- run a `pypgstac` command to load each file into your dockerised `pgstac` database
+- make the `pgstac` context entension enabled
+
 ---
 ## Exploring data
 
@@ -56,4 +58,4 @@ This uses a basic `pydantic` model approach and comes with various methods to ma
 - Change detection pre vs post disaster: consider bands (multispectral, pano, does maxar offer SAR?), classifiers (XGBoost, CNN)
 - Explore segementation and classification of images
 - Build a frontend app using TypeScript
-- Explore scrollytelling feasibility 
+- Explore scrollytelling feasibility
