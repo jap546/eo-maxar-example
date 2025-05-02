@@ -30,7 +30,7 @@ def setup() -> None:
             "insert_ignore",
         ]
 
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             command,
             capture_output=True,
             text=True,
@@ -45,11 +45,14 @@ def setup() -> None:
             )
             raise RuntimeError(msg)
 
-    with psycopg.connect(
-        "postgresql://username:password@0.0.0.0:5439/postgis",
-        autocommit=True,
-        options="-c search_path=pgstac,public -c application_name=pgstac",
-    ) as conn, conn.cursor() as cursor:
+    with (
+        psycopg.connect(
+            "postgresql://username:password@0.0.0.0:5439/postgis",
+            autocommit=True,
+            options="-c search_path=pgstac,public -c application_name=pgstac",
+        ) as conn,
+        conn.cursor() as cursor,
+    ):
         pgstac_settings = """
             INSERT INTO pgstac_settings (name, value)
             VALUES ('context', 'on')
