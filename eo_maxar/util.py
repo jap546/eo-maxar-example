@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 import ipyleaflet
@@ -28,9 +28,9 @@ class Collection(BaseModel):
 
     id: str
     title: str
-    description: Optional[str]
+    description: str | None
     extent: dict[str, Any]
-    links: Optional[list[dict[str, Any]]]
+    links: list[dict[str, Any]] | None
 
 
 def get_collections() -> list[str]:
@@ -49,7 +49,7 @@ class MaxarCollection(BaseModel):
         Maxar Open Data collection to work with.
     """
 
-    collection_id: Optional[str]
+    collection_id: str | None
 
     def get_collection_info(self) -> Collection:
         """Fetch information about a specific collection.
@@ -108,7 +108,7 @@ class MaxarCollection(BaseModel):
 
     def collection_bbox_map(
         self,
-        map_kwargs: Optional[dict] = None,
+        map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
         """Create a map displaying the bounding box of the collection.
 
@@ -231,7 +231,7 @@ class MaxarCollection(BaseModel):
         items: list[dict],
         item_id: str,
         asset: str = "visual",
-        map_kwargs: Optional[dict] = None,
+        map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
         """Create a map for a single COG (Cloud Optimized GeoTIFF).
 
@@ -286,18 +286,15 @@ class MaxarCollection(BaseModel):
         m.add_layer(tiles)
         return m
 
-    def mosaic_map(  # noqa: PLR0913
+    def pre_event_mosaic_map(
         self,
-        items: list[dict],
         bbox: list[float],
         event_date: datetime,
         asset: str = "visual",
         *,
-        pre_event: bool,
-        add_item_bounds: bool = False,
-        map_kwargs: Optional[dict] = None,
+        map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
-        """Create a mosaic map for the collection pre/post-event.
+        """Create a mosaic map for the collection pre-event.
 
         Arguments:
         ----------
@@ -313,12 +310,6 @@ class MaxarCollection(BaseModel):
         asset (str):
             relevant asset to map (e.g. visual)
 
-        pre_event (bool):
-            pre or post event flag.
-
-        add_item_bounds: (bool)
-            add item bbox geometry, defaults to False.
-
         map_kwargs (Optional[dict]):
             Optional map kwargs to pass to ipyleaflet.Map instance.
 
@@ -327,27 +318,6 @@ class MaxarCollection(BaseModel):
             ipyleaflet.Map: map showing mosaic of individual COGs.
         """
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        if pre_event:
-            filtered_items = list(
-                filter(
-                    lambda item: datetime.strptime(
-                        item["properties"]["datetime"], "%Y-%m-%dT%H:%M:%SZ"
-                    )
-                    < event_date,
-                    items,
-                )
-            )
-        else:
-            filtered_items = list(
-                filter(
-                    lambda item: datetime.strptime(
-                        item["properties"]["datetime"], "%Y-%m-%dT%H:%M:%SZ"
-                    )
-                    >= event_date,
-                    items,
-                )
-            )
 
         mosaic = httpx.post(
             f"{RASTER_ENDPOINT}/searches/register",
@@ -365,7 +335,7 @@ class MaxarCollection(BaseModel):
                                 ],
                             },
                             {
-                                "op": "lt" if pre_event else "ge",
+                                "op": "lt",
                                 "args": [
                                     {"property": "datetime"},
                                     event_date_str,
@@ -375,7 +345,7 @@ class MaxarCollection(BaseModel):
                     },
                     "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
                     "metadata": {
-                        "name": "Pre event" if pre_event else "Post event",
+                        "name": "Pre event",
                         "bounds": bbox,
                     },
                 }
@@ -406,25 +376,17 @@ class MaxarCollection(BaseModel):
         )
         m.add_layer(tiles)
 
-        if add_item_bounds:
-            geo_json = ipyleaflet.GeoJSON(
-                data={"type": "FeatureCollection", "features": filtered_items},
-                style={"fillOpacity": 0, "weight": 1},
-            )
-            m.add_layer(geo_json)
         return m
 
-    def mosaic_split_map(  # noqa: PLR0913
+    def post_event_mosaic_map(
         self,
-        items: list[dict],
         bbox: list[float],
         event_date: datetime,
         asset: str = "visual",
         *,
-        add_item_bounds: bool = False,
-        map_kwargs: Optional[dict] = None,
+        map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
-        """Create a mosaic map for the collection pre/post-event with split map.
+        """Create a mosaic map for the collection pre/post-event.
 
         Arguments:
         ----------
@@ -435,13 +397,100 @@ class MaxarCollection(BaseModel):
             bounding box extents to create the mosaic for.
 
         event_date (datetime):
-            date to create the pre and post event mosaics.
+            date to create the mosaic before or after.
 
         asset (str):
             relevant asset to map (e.g. visual)
 
-        add_item_bounds: (bool)
-            add item bbox geometry, defaults to False.
+        map_kwargs (Optional[dict]):
+            Optional map kwargs to pass to ipyleaflet.Map instance.
+
+        Returns:
+            --------
+            ipyleaflet.Map: map showing mosaic of individual COGs.
+        """
+        event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        mosaic = httpx.post(
+            f"{RASTER_ENDPOINT}/searches/register",
+            data=json.dumps(
+                {
+                    "filter-lang": "cql2-json",
+                    "filter": {
+                        "op": "and",
+                        "args": [
+                            {
+                                "op": "in",
+                                "args": [
+                                    {"property": "collection"},
+                                    [self.collection_id],
+                                ],
+                            },
+                            {
+                                "op": "ge",
+                                "args": [
+                                    {"property": "datetime"},
+                                    event_date_str,
+                                ],
+                            },
+                        ],
+                    },
+                    "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
+                    "metadata": {
+                        "name": "Post event",
+                        "bounds": bbox,
+                    },
+                }
+            ),
+        ).json()
+
+        search_id = mosaic["id"]
+        tilejson = httpx.get(
+            f"{RASTER_ENDPOINT}/searches/{search_id}/{TILEJSON_ENDPOINT}",
+            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
+        ).json()
+
+        bounds = tilejson["bounds"]
+        if map_kwargs:
+            m = ipyleaflet.Map(**map_kwargs)
+        else:
+            m = ipyleaflet.Map(
+                center=((bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2),
+                zoom=12,
+                layout=MAP_LAYOUT,
+            )
+
+        tiles = ipyleaflet.TileLayer(
+            url=tilejson["tiles"][0],
+            min_zoom=tilejson["minzoom"],
+            max_zoom=tilejson["maxzoom"],
+            bounds=[[bounds[1], bounds[0]], [bounds[3], bounds[2]]],
+        )
+
+        m.add_layer(tiles)
+
+        return m
+
+    def mosaic_split_map(
+        self,
+        bbox: list[float],
+        event_date: datetime,
+        asset: str = "visual",
+        *,
+        map_kwargs: dict | None = None,
+    ) -> ipyleaflet.Map:
+        """Create a mosaic map for the collection pre/post-event with split map.
+
+        Arguments:
+        ----------
+        bbox (list[float]):
+            bounding box extents to create the mosaic for.
+
+        event_date (datetime):
+            date to create the pre and post event mosaics.
+
+        asset (str):
+            relevant asset to map (e.g. visual)
 
         map_kwargs (Optional[dict]):
             Optional map kwargs to pass to ipyleaflet.Map instance.
@@ -561,15 +610,5 @@ class MaxarCollection(BaseModel):
         )
 
         m.add_control(control)
-
-        if add_item_bounds:
-            geo_json = ipyleaflet.GeoJSON(
-                data={
-                    "type": "FeatureCollection",
-                    "features": items,
-                },
-                style={"fillOpacity": 0, "weight": 1},
-            )
-            m.add_layer(geo_json)
 
         return m
