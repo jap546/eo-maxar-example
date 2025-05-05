@@ -52,11 +52,11 @@ class MaxarCollection(BaseModel):
     collection_id: str | None
 
     def get_collection_info(self) -> Collection:
-        """Fetch information about a specific collection.
+        """Fetch information about a specific Maxar STAC collection.
 
         Returns:
         --------
-        Collection: specific information from Maxar collections.
+        Collection: specific information from Maxar STAC collections.
         """
         response = httpx.get(f"{STAC_ENDPOINT}/collections/{self.collection_id}")
         collection_data = response.json()
