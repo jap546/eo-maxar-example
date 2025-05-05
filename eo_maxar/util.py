@@ -321,35 +321,33 @@ class MaxarCollection(BaseModel):
 
         mosaic = httpx.post(
             f"{RASTER_ENDPOINT}/searches/register",
-            data=json.dumps(
-                {
-                    "filter-lang": "cql2-json",
-                    "filter": {
-                        "op": "and",
-                        "args": [
-                            {
-                                "op": "in",
-                                "args": [
-                                    {"property": "collection"},
-                                    [self.collection_id],
-                                ],
-                            },
-                            {
-                                "op": "lt",
-                                "args": [
-                                    {"property": "datetime"},
-                                    event_date_str,
-                                ],
-                            },
-                        ],
-                    },
-                    "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
-                    "metadata": {
-                        "name": "Pre event",
-                        "bounds": bbox,
-                    },
-                }
-            ),
+            data=json.dumps({
+                "filter-lang": "cql2-json",
+                "filter": {
+                    "op": "and",
+                    "args": [
+                        {
+                            "op": "in",
+                            "args": [
+                                {"property": "collection"},
+                                [self.collection_id],
+                            ],
+                        },
+                        {
+                            "op": "lt",
+                            "args": [
+                                {"property": "datetime"},
+                                event_date_str,
+                            ],
+                        },
+                    ],
+                },
+                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
+                "metadata": {
+                    "name": "Pre event",
+                    "bounds": bbox,
+                },
+            }),
         ).json()
 
         search_id = mosaic["id"]
@@ -413,35 +411,33 @@ class MaxarCollection(BaseModel):
 
         mosaic = httpx.post(
             f"{RASTER_ENDPOINT}/searches/register",
-            data=json.dumps(
-                {
-                    "filter-lang": "cql2-json",
-                    "filter": {
-                        "op": "and",
-                        "args": [
-                            {
-                                "op": "in",
-                                "args": [
-                                    {"property": "collection"},
-                                    [self.collection_id],
-                                ],
-                            },
-                            {
-                                "op": "ge",
-                                "args": [
-                                    {"property": "datetime"},
-                                    event_date_str,
-                                ],
-                            },
-                        ],
-                    },
-                    "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
-                    "metadata": {
-                        "name": "Post event",
-                        "bounds": bbox,
-                    },
-                }
-            ),
+            data=json.dumps({
+                "filter-lang": "cql2-json",
+                "filter": {
+                    "op": "and",
+                    "args": [
+                        {
+                            "op": "in",
+                            "args": [
+                                {"property": "collection"},
+                                [self.collection_id],
+                            ],
+                        },
+                        {
+                            "op": "ge",
+                            "args": [
+                                {"property": "datetime"},
+                                event_date_str,
+                            ],
+                        },
+                    ],
+                },
+                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
+                "metadata": {
+                    "name": "Post event",
+                    "bounds": bbox,
+                },
+            }),
         ).json()
 
         search_id = mosaic["id"]
@@ -503,35 +499,33 @@ class MaxarCollection(BaseModel):
 
         mosaic_pre = httpx.post(
             f"{RASTER_ENDPOINT}/searches/register",
-            data=json.dumps(
-                {
-                    "filter-lang": "cql2-json",
-                    "filter": {
-                        "op": "and",
-                        "args": [
-                            {
-                                "op": "in",
-                                "args": [
-                                    {"property": "collection"},
-                                    [self.collection_id],
-                                ],
-                            },
-                            {
-                                "op": "lt",
-                                "args": [
-                                    {"property": "datetime"},
-                                    event_date_str,
-                                ],
-                            },
-                        ],
-                    },
-                    "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
-                    "metadata": {
-                        "name": "Pre event",
-                        "bounds": bbox,
-                    },
-                }
-            ),
+            data=json.dumps({
+                "filter-lang": "cql2-json",
+                "filter": {
+                    "op": "and",
+                    "args": [
+                        {
+                            "op": "in",
+                            "args": [
+                                {"property": "collection"},
+                                [self.collection_id],
+                            ],
+                        },
+                        {
+                            "op": "lt",
+                            "args": [
+                                {"property": "datetime"},
+                                event_date_str,
+                            ],
+                        },
+                    ],
+                },
+                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
+                "metadata": {
+                    "name": "Pre event",
+                    "bounds": bbox,
+                },
+            }),
         ).json()
 
         search_id_pre = mosaic_pre["id"]
@@ -542,35 +536,33 @@ class MaxarCollection(BaseModel):
 
         mosaic_post = httpx.post(
             f"{RASTER_ENDPOINT}/searches/register",
-            data=json.dumps(
-                {
-                    "filter-lang": "cql2-json",
-                    "filter": {
-                        "op": "and",
-                        "args": [
-                            {
-                                "op": "in",
-                                "args": [
-                                    {"property": "collection"},
-                                    [self.collection_id],
-                                ],
-                            },
-                            {
-                                "op": "ge",
-                                "args": [
-                                    {"property": "datetime"},
-                                    event_date_str,
-                                ],
-                            },
-                        ],
-                    },
-                    "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
-                    "metadata": {
-                        "name": "Post event",
-                        "bounds": bbox,
-                    },
-                }
-            ),
+            data=json.dumps({
+                "filter-lang": "cql2-json",
+                "filter": {
+                    "op": "and",
+                    "args": [
+                        {
+                            "op": "in",
+                            "args": [
+                                {"property": "collection"},
+                                [self.collection_id],
+                            ],
+                        },
+                        {
+                            "op": "ge",
+                            "args": [
+                                {"property": "datetime"},
+                                event_date_str,
+                            ],
+                        },
+                    ],
+                },
+                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
+                "metadata": {
+                    "name": "Post event",
+                    "bounds": bbox,
+                },
+            }),
         ).json()
 
         search_id_post = mosaic_post["id"]
