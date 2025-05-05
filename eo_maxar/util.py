@@ -34,10 +34,24 @@ class Collection(BaseModel):
 
 
 def get_collections() -> list[str]:
-    """Fetch collection names from the STAC API."""
-    response = httpx.get(f"{STAC_ENDPOINT}/collections")
-    collections = response.json()
-    return [c["id"] for c in collections["collections"]]
+    """Fetch all collection names from the STAC API, following pagination."""
+    url = f"{STAC_ENDPOINT}/collections"
+    collection_ids = []
+
+    while url:
+        response = httpx.get(url)
+        response.raise_for_status()
+        data = response.json()
+        collection_ids.extend(c["id"] for c in data["collections"])
+
+        # Check for a next page
+        next_link = next(
+            (link["href"] for link in data.get("links", []) if link["rel"] == "next"),
+            None,
+        )
+        url = next_link
+
+    return collection_ids
 
 
 class MaxarCollection(BaseModel):
