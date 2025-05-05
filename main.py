@@ -56,5 +56,5 @@ def setup() -> None:
         pgstac_settings = """
             INSERT INTO pgstac_settings (name, value)
             VALUES ('context', 'on')
-            ON CONFLICT ON CONSTRAINT pgstac_settings_pkey DO UPDATE SET value = excluded.value;"""
+            ON CONFLICT ON CONSTRAINT pgstac_settings_pkey DO UPDATE SET value = excluded.value;"""  # noqa: E501
         cursor.execute(sql.SQL(pgstac_settings))
