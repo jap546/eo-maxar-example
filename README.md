@@ -42,6 +42,15 @@ This runs `main.py::setup` which does do three things:
 - run a `pypgstac` command to load each file into your dockerised `pgstac` database
 - make the `pgstac` context entension enabled
 
+#### Complete rebuild?
+If you want to start from scratch (e.g. ingest new data, or just start afresh), rebuild everything:
+
+```
+docker compose down
+rm -rf .pgdata
+docker compose up --build
+```
+
 ---
 ## Exploring data
 
