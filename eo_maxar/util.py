@@ -44,7 +44,6 @@ def get_collections() -> list[str]:
         data = response.json()
         collection_ids.extend(c["id"] for c in data["collections"])
 
-        # Check for a next page
         next_link = next(
             (link["href"] for link in data.get("links", []) if link["rel"] == "next"),
             None,
