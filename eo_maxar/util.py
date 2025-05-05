@@ -14,23 +14,23 @@ from eo_maxar.constants import (
 )
 
 
-class Item(BaseModel):
-    """Represents a single item in a collection."""
-
-    id: str
-    bbox: list[float]
-    properties: dict
-    assets: dict[str, Any]
-
-
 class Collection(BaseModel):
-    """Represents a single collection of items."""
+    """Represents selected information from a single Maxar STAC collection."""
 
     id: str
     title: str
     description: str | None
     extent: dict[str, Any]
     links: list[dict[str, Any]] | None
+
+
+class Item(BaseModel):
+    """Represents selected information from a single STAC item from a collection."""
+
+    id: str
+    bbox: list[float]
+    properties: dict
+    assets: dict[str, Any]
 
 
 def get_collections() -> list[str]:
@@ -197,7 +197,7 @@ class MaxarCollection(BaseModel):
         return m
 
     def pre_post_map(self, items: list[dict], event_date: datetime) -> ipyleaflet.Map:
-        """Create a map that visualises items based on pre/post-event date.
+        """Create a map that visualises item GeoJSONs based on pre/post-event date.
 
         Returns:
         --------
@@ -246,7 +246,7 @@ class MaxarCollection(BaseModel):
         asset: str = "visual",
         map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
-        """Create a map for a single COG (Cloud Optimized GeoTIFF).
+        """Create a single COG map from an item (default is visual asset).
 
         Arguments:
         ----------
@@ -328,7 +328,7 @@ class MaxarCollection(BaseModel):
 
         Returns:
             --------
-            ipyleaflet.Map: map showing mosaic of individual COGs.
+            ipyleaflet.Map: map showing mosaic raster of individual COGs.
         """
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
