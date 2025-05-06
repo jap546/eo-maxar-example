@@ -51,6 +51,8 @@ rm -rf .pgdata
 docker compose up --build
 ```
 
+And then re-run the `setup` command.
+
 ---
 ## Exploring data
 
