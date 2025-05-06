@@ -71,7 +71,34 @@ class MaxarCollection(BaseModel):
         event_date_str: str,
         name: str,
     ) -> str:
-        """Helper to register a mosaic search and return the search ID."""
+        """
+        Register a mosaic search with filtering conditions and return the search ID.
+
+        This helper function submits a search request to the Raster API endpoint using
+        CQL2 filters to define temporal and spatial constraints. The resulting search is
+        registered on the server, and its unique search ID is returned.
+
+        Parameters:
+        -----------
+        bbox : list[float]
+            The spatial bounding box of the area of interest in [minX, minY, maxX, maxY]
+            format.
+
+        datetime_op : str
+            The comparison operator for filtering by datetime (e.g., "lt" for less than,
+            "ge" for greater than or equal).
+
+        event_date_str : str
+            The datetime string to use for filtering (e.g., "2023-02-06T00:00:00Z").
+
+        name : str
+            Name to associate with the registered mosaic search for identification.
+
+        Returns:
+        --------
+        str
+            Unique ID of the registered mosaic search to retrieve associated tile data.
+        """
         response = httpx.post(
             f"{RASTER_ENDPOINT}/searches/register",
             data=json.dumps({
@@ -96,7 +123,26 @@ class MaxarCollection(BaseModel):
         return response.json()["id"]
 
     def _get_tilejson(self, search_id: str, asset: str) -> dict:
-        """Helper to fetch tilejson from a search ID."""
+        """Fetch a TileJSON metadata dictionary for a given search ID and asset type.
+
+        This helper sends a GET request to the raster service to retrieve TileJSON
+        metadata, which describes how to render tiles for a mosaic or item (including
+        tile URLs, bounds, zoom levels, etc.).
+
+        Parameters:
+        -----------
+        search_id : str
+            ID of the registered mosaic or item search obtained from `_register_mosaic`.
+
+        asset : str
+            The asset type to render (e.g., "visual", "analytic", etc.).
+
+        Returns:
+        --------
+        dict
+            A dictionary conforming to the TileJSON format, including tile URLs, bounds,
+            min/max zoom, and other rendering metadata.
+        """
         return httpx.get(
             f"{RASTER_ENDPOINT}/searches/{search_id}/{TILEJSON_ENDPOINT}",
             params={"assets": asset, "minzoom": 12, "maxzoom": 22},
@@ -105,6 +151,29 @@ class MaxarCollection(BaseModel):
     def _make_map_from_tilejson(
         self, tilejson: dict, map_kwargs: dict | None
     ) -> ipyleaflet.Map:
+        """
+        Create an ipyleaflet.Map instance using a TileJSON dictionary.
+
+        This helper sets up an interactive map centered on the TileJSON's bounding box
+        and adds a TileLayer based on the provided tile URL and zoom levels. Optionally,
+        it allows for user-provided map customization via `map_kwargs`.
+
+        Parameters:
+        -----------
+        tilejson : dict
+            A TileJSON dictionary containing metadata such as tile URL templates,
+            bounds, and min/max zoom levels. Typically returned by `_get_tilejson`.
+
+        map_kwargs : dict | None
+            Optional keyword arguments to override default map configuration
+            (e.g., `{"zoom": 14}` or `{"center": [lat, lon]}`).
+
+        Returns:
+        --------
+        ipyleaflet.Map
+            An interactive ipyleaflet map with the tile layer rendered according to the
+            TileJSON specification.
+        """
         bounds = tilejson["bounds"]
 
         m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
@@ -122,7 +191,31 @@ class MaxarCollection(BaseModel):
     def _set_default_map_kwargs(
         self, bounds: list[float], zoom: int = 10, overrides: dict | None = None
     ) -> dict[str, Any]:
-        """Generate default map kwargs, allowing user overrides."""
+        """Create map keyword arguments for ipyleaflet.Map with optional user overrides.
+
+        Computes the map center based on a bounding box and applies a default zoom and
+        layout.
+
+        If `overrides` are provided, they will take precedence over the defaults (e.g.
+        to override zoom level or center).
+
+        Parameters:
+        -----------
+        bounds : list[float]
+            Bounding box [minX, minY, maxX, maxY] used to compute map center.
+
+        zoom : int, default=10
+            The default zoom level to use if not overridden.
+
+        overrides : dict | None
+            Optional dictionary of keyword arguments to override the defaults (e.g.
+            {"zoom": 14}).
+
+        Returns:
+        --------
+        dict[str, Any]
+            Dictionary of keyword arguments for initializing an ipyleaflet.Map instance.
+        """
         default_kwargs = {
             "center": [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2],
             "zoom": zoom,
@@ -131,22 +224,33 @@ class MaxarCollection(BaseModel):
         return {**default_kwargs, **(overrides or {})}
 
     def get_collection_info(self) -> Collection:
-        """Fetch information about a specific Maxar STAC collection.
+        """Retrieve metadata for a specific Maxar STAC collection.
+
+        Sends a GET request to the STAC API to fetch collection-level metadata,
+        including spatial/temporal extent, description, and links. The response
+        is parsed and validated into a `Collection` Pydantic model.
 
         Returns:
         --------
-        Collection: specific information from Maxar STAC collections.
+        Collection
+            Validated Collection object containing metadata for a specified collection.
         """
         response = httpx.get(f"{STAC_ENDPOINT}/collections/{self.collection_id}")
         collection_data = response.json()
         return Collection.model_validate(collection_data)
 
     def get_collection_items(self) -> list[Item]:
-        """Fetch all items in the collection.
+        """
+        Retrieve all STAC items for the current collection, handling pagination.
+
+        Sends repeated GET requests to the STAC API to retrieve all items (features)
+        belonging to the specified collection. Handles pagination automatically using
+        the 'next' link in the response.
 
         Returns:
         --------
-        List[Items]: all items from a collection.
+        list[Item]
+            List of Item dictionaries representing individual assets in the collection.
         """
         item_results = []
 
@@ -168,32 +272,38 @@ class MaxarCollection(BaseModel):
         return item_results
 
     def get_main_bbox(self) -> list:
-        """Helper function to get main bbox of collection.
+        """Extract the main bounding box of the collection.
+
+        Fetches collection metadata and returns the first bounding box
+        defined in the spatial extent.
 
         Returns:
         --------
-        list: list of bbox coordinates of collection.
+        list
+            A list of coordinates in the format [minX, minY, maxX, maxY].
         """
         return self.get_collection_info().extent["spatial"]["bbox"][0]
-
-    def get_temporal_extent(self) -> list:
-        """Helper function to get temporal extent of collection.
-
-        Returns:
-        --------
-        list: all temporal event information.
-        """
-        return self.get_collection_info().extent["temporal"]["interval"]
 
     def collection_bbox_map(
         self,
         map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
-        """Create a map displaying the bounding box of the collection.
+        """Create an interactive map displaying the bounding box of the collection.
+
+        Each bounding box defined in the collection's spatial extent is rendered as a
+        polygon.
+
+        The main bbox is styled with a dashed outline to differentiate it from others.
+
+        Parameters:
+        -----------
+        map_kwargs : dict | None
+            Optional keyword arguments to customize the ipyleaflet.Map (e.g. center).
 
         Returns:
         --------
-        ipyleaflet.Map: interactive map of collection bounding box geometries.
+        ipyleaflet.Map
+            A map with bounding box geometries visualized.
         """
         collection_info = self.get_collection_info()
         geojson = {
@@ -261,11 +371,26 @@ class MaxarCollection(BaseModel):
         event_date: datetime,
         map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
-        """Create a map that visualises item GeoJSONs based on pre/post-event date.
+        """Create a map to visualize STAC items styled by pre- and post-event timing.
+
+        Items earlier than the event date are shown in blue; those on/after the event
+        date are red.
+
+        Parameters:
+        -----------
+        items : list[dict]
+            A list of STAC item features to be visualized.
+
+        event_date : datetime
+            The event date used to split pre- and post-event imagery.
+
+        map_kwargs : dict | None
+            Optional map customization parameters.
 
         Returns:
         --------
-        ipyleaflet.Map: item collections styled by pre-post event.
+        ipyleaflet.Map
+            A map showing the items colored by time relative to the event.
         """
         collection_info = self.get_collection_info()
 
@@ -305,27 +430,24 @@ class MaxarCollection(BaseModel):
         asset: str = "visual",
         map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
-        """Create a single COG map from an item (default is visual asset).
+        """Create a map displaying a single Cloud Optimized GeoTIFF asset by item ID.
 
-        Arguments:
-        ----------
-        items (list[dict]):
-            list of dictionary collection Items.
+        Parameters:
+        -----------
+        item_id : str
+            The STAC item ID to retrieve imagery for.
 
-        item_id (str):
-            item_id to filter by.
+        asset : str, default="visual"
+            The asset type to visualize (e.g., "visual", "analytic").
 
-        asset (str):
-            relevant asset to map (e.g. visual)
-
-        map_kwargs (Optional[dict]):
-            Optional map kwargs to pass to ipyleaflet.Map instance.
+        map_kwargs : dict | None
+            Optional map customization parameters.
 
         Returns:
-            --------
-            ipyleaflet.Map: map showing single COG file.
+        --------
+        ipyleaflet.Map
+            Map centered on item's bounds with the selected asset shown as a tile layer.
         """
-
         tilejson = httpx.get(
             f"{RASTER_ENDPOINT}/collections/{self.collection_id}/items/{item_id}/{TILEJSON_ENDPOINT}",
             params={"assets": asset, "minzoom": 12, "maxzoom": 22},
@@ -352,28 +474,26 @@ class MaxarCollection(BaseModel):
         *,
         map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
-        """Create a mosaic map for the collection pre-event.
+        """Create a mosaic map of imagery acquired before a specified event date.
 
-        Arguments:
-        ----------
-        items (list[dict]):
-            list of dictionary collection Items.
+        Parameters:
+        -----------
+        bbox : list[float]
+            Bounding box [minX, minY, maxX, maxY] to spatially constrain the mosaic.
 
-        bbox (list[float]):
-            bounding box extents to create the mosaic for.
+        event_date : datetime
+            The datetime used to filter images taken before the event.
 
-        event_date (datetime):
-            date to create the mosaic before or after.
+        asset : str, default="visual"
+            The imagery asset to render.
 
-        asset (str):
-            relevant asset to map (e.g. visual)
-
-        map_kwargs (Optional[dict]):
-            Optional map kwargs to pass to ipyleaflet.Map instance.
+        map_kwargs : dict | None
+            Optional keyword arguments to customize the map display.
 
         Returns:
-            --------
-            ipyleaflet.Map: map showing mosaic raster of individual COGs.
+        --------
+        ipyleaflet.Map
+            A map displaying the pre-event mosaic of the collection.
         """
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         search_id = self._register_mosaic(bbox, "lt", event_date_str, "Pre event")
@@ -388,28 +508,26 @@ class MaxarCollection(BaseModel):
         *,
         map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
-        """Create a mosaic map for the collection pre/post-event.
+        """Create a mosaic map of imagery acquired on or after a specified event date.
 
-        Arguments:
-        ----------
-        items (list[dict]):
-            list of dictionary collection Items.
+        Parameters:
+        -----------
+        bbox : list[float]
+            Bounding box [minX, minY, maxX, maxY] to spatially constrain the mosaic.
 
-        bbox (list[float]):
-            bounding box extents to create the mosaic for.
+        event_date : datetime
+            The datetime used to filter images taken on or after the event.
 
-        event_date (datetime):
-            date to create the mosaic before or after.
+        asset : str, default="visual"
+            The imagery asset to render.
 
-        asset (str):
-            relevant asset to map (e.g. visual)
-
-        map_kwargs (Optional[dict]):
-            Optional map kwargs to pass to ipyleaflet.Map instance.
+        map_kwargs : dict | None
+            Optional keyword arguments to customize the map display.
 
         Returns:
-            --------
-            ipyleaflet.Map: map showing mosaic of individual COGs.
+        --------
+        ipyleaflet.Map
+            A map displaying the post-event mosaic of the collection.
         """
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         search_id = self._register_mosaic(bbox, "ge", event_date_str, "Post event")
@@ -424,25 +542,28 @@ class MaxarCollection(BaseModel):
         *,
         map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
-        """Create a mosaic map for the collection pre/post-event with split map.
+        """Create a split-view map comparing pre- and post-event mosaics side by side.
 
-        Arguments:
-        ----------
-        bbox (list[float]):
-            bounding box extents to create the mosaic for.
+        Uses ipyleaflet.SplitMapControl to let users swipe between pre-post imagery.
 
-        event_date (datetime):
-            date to create the pre and post event mosaics.
+        Parameters:
+        -----------
+        bbox : list[float]
+            Bounding box [minX, minY, maxX, maxY] to define the area of interest.
 
-        asset (str):
-            relevant asset to map (e.g. visual)
+        event_date : datetime
+            The event date to split imagery around.
 
-        map_kwargs (Optional[dict]):
-            Optional map kwargs to pass to ipyleaflet.Map instance.
+        asset : str, default="visual"
+            The imagery asset to visualize in both views.
+
+        map_kwargs : dict | None
+            Optional keyword arguments to customize the map display.
 
         Returns:
-            --------
-            ipyleaflet.Map: split map showing pre/post mosaic of individual COGs.
+        --------
+        ipyleaflet.Map
+            An interactive split map showing pre- and post-event imagery.
         """
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
