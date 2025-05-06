@@ -181,7 +181,7 @@ class MaxarCollection(BaseModel):
         event_date: datetime,
         map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
-        """Create a map to visualize STAC items styled by pre- and post-event timing.
+        """Create a map to visualize STAC items styled by pre-post event.
 
         Items earlier than the event date are shown in blue; those on/after the event
         date are red.
