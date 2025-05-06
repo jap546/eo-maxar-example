@@ -64,6 +64,72 @@ class MaxarCollection(BaseModel):
 
     collection_id: str | None
 
+    def _register_mosaic(
+        self,
+        bbox: list[float],
+        datetime_op: str,
+        event_date_str: str,
+        name: str,
+    ) -> str:
+        """Helper to register a mosaic search and return the search ID."""
+        response = httpx.post(
+            f"{RASTER_ENDPOINT}/searches/register",
+            data=json.dumps({
+                "filter-lang": "cql2-json",
+                "filter": {
+                    "op": "and",
+                    "args": [
+                        {
+                            "op": "in",
+                            "args": [{"property": "collection"}, [self.collection_id]],
+                        },
+                        {
+                            "op": datetime_op,
+                            "args": [{"property": "datetime"}, event_date_str],
+                        },
+                    ],
+                },
+                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
+                "metadata": {"name": name, "bounds": bbox},
+            }),
+        )
+        return response.json()["id"]
+
+    def _get_tilejson(self, search_id: str, asset: str) -> dict:
+        """Helper to fetch tilejson from a search ID."""
+        return httpx.get(
+            f"{RASTER_ENDPOINT}/searches/{search_id}/{TILEJSON_ENDPOINT}",
+            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
+        ).json()
+
+    def _make_map_from_tilejson(
+        self, tilejson: dict, map_kwargs: dict | None
+    ) -> ipyleaflet.Map:
+        bounds = tilejson["bounds"]
+
+        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
+
+        m.add_layer(
+            ipyleaflet.TileLayer(
+                url=tilejson["tiles"][0],
+                min_zoom=tilejson["minzoom"],
+                max_zoom=tilejson["maxzoom"],
+                bounds=[[bounds[1], bounds[0]], [bounds[3], bounds[2]]],
+            )
+        )
+        return m
+
+    def _set_default_map_kwargs(
+        self, bounds: list[float], zoom: int = 10, overrides: dict | None = None
+    ) -> dict[str, Any]:
+        """Generate default map kwargs, allowing user overrides."""
+        default_kwargs = {
+            "center": [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2],
+            "zoom": zoom,
+            "layout": MAP_LAYOUT,
+        }
+        return {**default_kwargs, **(overrides or {})}
+
     def get_collection_info(self) -> Collection:
         """Fetch information about a specific Maxar STAC collection.
 
@@ -155,14 +221,7 @@ class MaxarCollection(BaseModel):
 
         bounds = collection_info.extent["spatial"]["bbox"][0]
 
-        if map_kwargs:
-            m = ipyleaflet.Map(**map_kwargs)
-        else:
-            m = ipyleaflet.Map(
-                center=((bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2),
-                zoom=7,
-                layout=MAP_LAYOUT,
-            )
+        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
 
         def style_function(feature: dict) -> dict:
             """Takes feature dictionary and styles by main bbox vs item.
@@ -196,7 +255,12 @@ class MaxarCollection(BaseModel):
         m.add_layer(geo_json)
         return m
 
-    def pre_post_map(self, items: list[dict], event_date: datetime) -> ipyleaflet.Map:
+    def pre_post_map(
+        self,
+        items: list[dict],
+        event_date: datetime,
+        map_kwargs: dict | None = None,
+    ) -> ipyleaflet.Map:
         """Create a map that visualises item GeoJSONs based on pre/post-event date.
 
         Returns:
@@ -207,11 +271,7 @@ class MaxarCollection(BaseModel):
 
         bounds = collection_info.extent["spatial"]["bbox"][0]
 
-        m = ipyleaflet.Map(
-            center=((bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2),
-            zoom=7,
-            layout=MAP_LAYOUT,
-        )
+        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
 
         def style_function(feature: dict) -> dict:
             """Style the features based on the datetime of the item.
@@ -241,7 +301,6 @@ class MaxarCollection(BaseModel):
 
     def single_cog_map(
         self,
-        items: list[dict],
         item_id: str,
         asset: str = "visual",
         map_kwargs: dict | None = None,
@@ -266,7 +325,6 @@ class MaxarCollection(BaseModel):
             --------
             ipyleaflet.Map: map showing single COG file.
         """
-        item = next(item for item in items if item["id"] == item_id)
 
         tilejson = httpx.get(
             f"{RASTER_ENDPOINT}/collections/{self.collection_id}/items/{item_id}/{TILEJSON_ENDPOINT}",
@@ -275,20 +333,7 @@ class MaxarCollection(BaseModel):
 
         bounds = tilejson["bounds"]
 
-        if map_kwargs:
-            m = ipyleaflet.Map(**map_kwargs)
-        else:
-            m = ipyleaflet.Map(
-                center=((bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2),
-                zoom=12,
-                layout=MAP_LAYOUT,
-            )
-
-        geo_json = ipyleaflet.GeoJSON(
-            data=item,
-            style={"opacity": 1, "dashArray": "9", "fillOpacity": 0.0, "weight": 4},
-        )
-        m.add_layer(geo_json)
+        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
 
         tiles = ipyleaflet.TileLayer(
             url=tilejson["tiles"][0],
@@ -331,63 +376,9 @@ class MaxarCollection(BaseModel):
             ipyleaflet.Map: map showing mosaic raster of individual COGs.
         """
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        mosaic = httpx.post(
-            f"{RASTER_ENDPOINT}/searches/register",
-            data=json.dumps({
-                "filter-lang": "cql2-json",
-                "filter": {
-                    "op": "and",
-                    "args": [
-                        {
-                            "op": "in",
-                            "args": [
-                                {"property": "collection"},
-                                [self.collection_id],
-                            ],
-                        },
-                        {
-                            "op": "lt",
-                            "args": [
-                                {"property": "datetime"},
-                                event_date_str,
-                            ],
-                        },
-                    ],
-                },
-                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
-                "metadata": {
-                    "name": "Pre event",
-                    "bounds": bbox,
-                },
-            }),
-        ).json()
-
-        search_id = mosaic["id"]
-        tilejson = httpx.get(
-            f"{RASTER_ENDPOINT}/searches/{search_id}/{TILEJSON_ENDPOINT}",
-            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
-        ).json()
-
-        bounds = tilejson["bounds"]
-        if map_kwargs:
-            m = ipyleaflet.Map(**map_kwargs)
-        else:
-            m = ipyleaflet.Map(
-                center=((bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2),
-                zoom=12,
-                layout=MAP_LAYOUT,
-            )
-
-        tiles = ipyleaflet.TileLayer(
-            url=tilejson["tiles"][0],
-            min_zoom=tilejson["minzoom"],
-            max_zoom=tilejson["maxzoom"],
-            bounds=[[bounds[1], bounds[0]], [bounds[3], bounds[2]]],
-        )
-        m.add_layer(tiles)
-
-        return m
+        search_id = self._register_mosaic(bbox, "lt", event_date_str, "Pre event")
+        tilejson = self._get_tilejson(search_id, asset)
+        return self._make_map_from_tilejson(tilejson, map_kwargs)
 
     def post_event_mosaic_map(
         self,
@@ -421,64 +412,9 @@ class MaxarCollection(BaseModel):
             ipyleaflet.Map: map showing mosaic of individual COGs.
         """
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        mosaic = httpx.post(
-            f"{RASTER_ENDPOINT}/searches/register",
-            data=json.dumps({
-                "filter-lang": "cql2-json",
-                "filter": {
-                    "op": "and",
-                    "args": [
-                        {
-                            "op": "in",
-                            "args": [
-                                {"property": "collection"},
-                                [self.collection_id],
-                            ],
-                        },
-                        {
-                            "op": "ge",
-                            "args": [
-                                {"property": "datetime"},
-                                event_date_str,
-                            ],
-                        },
-                    ],
-                },
-                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
-                "metadata": {
-                    "name": "Post event",
-                    "bounds": bbox,
-                },
-            }),
-        ).json()
-
-        search_id = mosaic["id"]
-        tilejson = httpx.get(
-            f"{RASTER_ENDPOINT}/searches/{search_id}/{TILEJSON_ENDPOINT}",
-            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
-        ).json()
-
-        bounds = tilejson["bounds"]
-        if map_kwargs:
-            m = ipyleaflet.Map(**map_kwargs)
-        else:
-            m = ipyleaflet.Map(
-                center=((bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2),
-                zoom=12,
-                layout=MAP_LAYOUT,
-            )
-
-        tiles = ipyleaflet.TileLayer(
-            url=tilejson["tiles"][0],
-            min_zoom=tilejson["minzoom"],
-            max_zoom=tilejson["maxzoom"],
-            bounds=[[bounds[1], bounds[0]], [bounds[3], bounds[2]]],
-        )
-
-        m.add_layer(tiles)
-
-        return m
+        search_id = self._register_mosaic(bbox, "ge", event_date_str, "Post event")
+        tilejson = self._get_tilejson(search_id, asset)
+        return self._make_map_from_tilejson(tilejson, map_kwargs)
 
     def mosaic_split_map(
         self,
@@ -510,92 +446,16 @@ class MaxarCollection(BaseModel):
         """
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        mosaic_pre = httpx.post(
-            f"{RASTER_ENDPOINT}/searches/register",
-            data=json.dumps({
-                "filter-lang": "cql2-json",
-                "filter": {
-                    "op": "and",
-                    "args": [
-                        {
-                            "op": "in",
-                            "args": [
-                                {"property": "collection"},
-                                [self.collection_id],
-                            ],
-                        },
-                        {
-                            "op": "lt",
-                            "args": [
-                                {"property": "datetime"},
-                                event_date_str,
-                            ],
-                        },
-                    ],
-                },
-                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
-                "metadata": {
-                    "name": "Pre event",
-                    "bounds": bbox,
-                },
-            }),
-        ).json()
+        search_id_pre = self._register_mosaic(bbox, "lt", event_date_str, "Pre event")
+        tilejson_pre = self._get_tilejson(search_id_pre, asset)
 
-        search_id_pre = mosaic_pre["id"]
-        tilejson_pre = httpx.get(
-            f"{RASTER_ENDPOINT}/searches/{search_id_pre}/{TILEJSON_ENDPOINT}",
-            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
-        ).json()
-
-        mosaic_post = httpx.post(
-            f"{RASTER_ENDPOINT}/searches/register",
-            data=json.dumps({
-                "filter-lang": "cql2-json",
-                "filter": {
-                    "op": "and",
-                    "args": [
-                        {
-                            "op": "in",
-                            "args": [
-                                {"property": "collection"},
-                                [self.collection_id],
-                            ],
-                        },
-                        {
-                            "op": "ge",
-                            "args": [
-                                {"property": "datetime"},
-                                event_date_str,
-                            ],
-                        },
-                    ],
-                },
-                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
-                "metadata": {
-                    "name": "Post event",
-                    "bounds": bbox,
-                },
-            }),
-        ).json()
-
-        search_id_post = mosaic_post["id"]
-        tilejson_post = httpx.get(
-            f"{RASTER_ENDPOINT}/searches/{search_id_post}/{TILEJSON_ENDPOINT}",
-            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
-        ).json()
+        search_id_post = self._register_mosaic(bbox, "ge", event_date_str, "Post event")
+        tilejson_post = self._get_tilejson(search_id_post, asset)
 
         bounds = tilejson_pre["bounds"]
+        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
 
-        if map_kwargs:
-            m = ipyleaflet.Map(**map_kwargs)
-        else:
-            m = ipyleaflet.Map(
-                center=((bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2),
-                zoom=12,
-                layout=MAP_LAYOUT,
-            )
-
-        before_layer = ipyleaflet.TileLayer(
+        left_layer = ipyleaflet.TileLayer(
             url=tilejson_pre["tiles"][0],
             min_zoom=tilejson_pre["minzoom"],
             max_zoom=tilejson_pre["maxzoom"],
@@ -603,17 +463,14 @@ class MaxarCollection(BaseModel):
         )
 
         bounds_post = tilejson_post["bounds"]
-        after_layer = ipyleaflet.TileLayer(
+        right_layer = ipyleaflet.TileLayer(
             url=tilejson_post["tiles"][0],
             min_zoom=tilejson_post["minzoom"],
             max_zoom=tilejson_post["maxzoom"],
             bounds=[[bounds_post[1], bounds_post[0]], [bounds_post[3], bounds_post[2]]],
         )
 
-        control = ipyleaflet.SplitMapControl(
-            left_layer=before_layer, right_layer=after_layer
+        m.add_control(
+            ipyleaflet.SplitMapControl(left_layer=left_layer, right_layer=right_layer)
         )
-
-        m.add_control(control)
-
         return m
