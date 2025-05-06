@@ -64,165 +64,6 @@ class MaxarCollection(BaseModel):
 
     collection_id: str | None
 
-    def _register_mosaic(
-        self,
-        bbox: list[float],
-        datetime_op: str,
-        event_date_str: str,
-        name: str,
-    ) -> str:
-        """
-        Register a mosaic search with filtering conditions and return the search ID.
-
-        This helper function submits a search request to the Raster API endpoint using
-        CQL2 filters to define temporal and spatial constraints. The resulting search is
-        registered on the server, and its unique search ID is returned.
-
-        Parameters:
-        -----------
-        bbox : list[float]
-            The spatial bounding box of the area of interest in [minX, minY, maxX, maxY]
-            format.
-
-        datetime_op : str
-            The comparison operator for filtering by datetime (e.g., "lt" for less than,
-            "ge" for greater than or equal).
-
-        event_date_str : str
-            The datetime string to use for filtering (e.g., "2023-02-06T00:00:00Z").
-
-        name : str
-            Name to associate with the registered mosaic search for identification.
-
-        Returns:
-        --------
-        str
-            Unique ID of the registered mosaic search to retrieve associated tile data.
-        """
-        response = httpx.post(
-            f"{RASTER_ENDPOINT}/searches/register",
-            data=json.dumps({
-                "filter-lang": "cql2-json",
-                "filter": {
-                    "op": "and",
-                    "args": [
-                        {
-                            "op": "in",
-                            "args": [{"property": "collection"}, [self.collection_id]],
-                        },
-                        {
-                            "op": datetime_op,
-                            "args": [{"property": "datetime"}, event_date_str],
-                        },
-                    ],
-                },
-                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
-                "metadata": {"name": name, "bounds": bbox},
-            }),
-        )
-        return response.json()["id"]
-
-    def _get_tilejson(self, search_id: str, asset: str) -> dict:
-        """Fetch a TileJSON metadata dictionary for a given search ID and asset type.
-
-        This helper sends a GET request to the raster service to retrieve TileJSON
-        metadata, which describes how to render tiles for a mosaic or item (including
-        tile URLs, bounds, zoom levels, etc.).
-
-        Parameters:
-        -----------
-        search_id : str
-            ID of the registered mosaic or item search obtained from `_register_mosaic`.
-
-        asset : str
-            The asset type to render (e.g., "visual", "analytic", etc.).
-
-        Returns:
-        --------
-        dict
-            A dictionary conforming to the TileJSON format, including tile URLs, bounds,
-            min/max zoom, and other rendering metadata.
-        """
-        return httpx.get(
-            f"{RASTER_ENDPOINT}/searches/{search_id}/{TILEJSON_ENDPOINT}",
-            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
-        ).json()
-
-    def _make_map_from_tilejson(
-        self, tilejson: dict, map_kwargs: dict | None
-    ) -> ipyleaflet.Map:
-        """
-        Create an ipyleaflet.Map instance using a TileJSON dictionary.
-
-        This helper sets up an interactive map centered on the TileJSON's bounding box
-        and adds a TileLayer based on the provided tile URL and zoom levels. Optionally,
-        it allows for user-provided map customization via `map_kwargs`.
-
-        Parameters:
-        -----------
-        tilejson : dict
-            A TileJSON dictionary containing metadata such as tile URL templates,
-            bounds, and min/max zoom levels. Typically returned by `_get_tilejson`.
-
-        map_kwargs : dict | None
-            Optional keyword arguments to override default map configuration
-            (e.g., `{"zoom": 14}` or `{"center": [lat, lon]}`).
-
-        Returns:
-        --------
-        ipyleaflet.Map
-            An interactive ipyleaflet map with the tile layer rendered according to the
-            TileJSON specification.
-        """
-        bounds = tilejson["bounds"]
-
-        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
-
-        m.add_layer(
-            ipyleaflet.TileLayer(
-                url=tilejson["tiles"][0],
-                min_zoom=tilejson["minzoom"],
-                max_zoom=tilejson["maxzoom"],
-                bounds=[[bounds[1], bounds[0]], [bounds[3], bounds[2]]],
-            )
-        )
-        return m
-
-    def _set_default_map_kwargs(
-        self, bounds: list[float], zoom: int = 10, overrides: dict | None = None
-    ) -> dict[str, Any]:
-        """Create map keyword arguments for ipyleaflet.Map with optional user overrides.
-
-        Computes the map center based on a bounding box and applies a default zoom and
-        layout.
-
-        If `overrides` are provided, they will take precedence over the defaults (e.g.
-        to override zoom level or center).
-
-        Parameters:
-        -----------
-        bounds : list[float]
-            Bounding box [minX, minY, maxX, maxY] used to compute map center.
-
-        zoom : int, default=10
-            The default zoom level to use if not overridden.
-
-        overrides : dict | None
-            Optional dictionary of keyword arguments to override the defaults (e.g.
-            {"zoom": 14}).
-
-        Returns:
-        --------
-        dict[str, Any]
-            Dictionary of keyword arguments for initializing an ipyleaflet.Map instance.
-        """
-        default_kwargs = {
-            "center": [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2],
-            "zoom": zoom,
-            "layout": MAP_LAYOUT,
-        }
-        return {**default_kwargs, **(overrides or {})}
-
     def get_collection_info(self) -> Collection:
         """Retrieve metadata for a specific Maxar STAC collection.
 
@@ -270,19 +111,6 @@ class MaxarCollection(BaseModel):
                 break
             x += 1
         return item_results
-
-    def get_main_bbox(self) -> list:
-        """Extract the main bounding box of the collection.
-
-        Fetches collection metadata and returns the first bounding box
-        defined in the spatial extent.
-
-        Returns:
-        --------
-        list
-            A list of coordinates in the format [minX, minY, maxX, maxY].
-        """
-        return self.get_collection_info().extent["spatial"]["bbox"][0]
 
     def collection_bbox_map(
         self,
@@ -466,6 +294,68 @@ class MaxarCollection(BaseModel):
         m.add_layer(tiles)
         return m
 
+    def mosaic_split_map(
+        self,
+        bbox: list[float],
+        event_date: datetime,
+        asset: str = "visual",
+        *,
+        map_kwargs: dict | None = None,
+    ) -> ipyleaflet.Map:
+        """Create a split-view map comparing pre- and post-event mosaics side by side.
+
+        Uses ipyleaflet.SplitMapControl to let users swipe between pre-post imagery.
+
+        Parameters:
+        -----------
+        bbox : list[float]
+            Bounding box [minX, minY, maxX, maxY] to define the area of interest.
+
+        event_date : datetime
+            The event date to split imagery around.
+
+        asset : str, default="visual"
+            The imagery asset to visualize in both views.
+
+        map_kwargs : dict | None
+            Optional keyword arguments to customize the map display.
+
+        Returns:
+        --------
+        ipyleaflet.Map
+            An interactive split map showing pre- and post-event imagery.
+        """
+        event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        search_id_pre = self._register_mosaic(bbox, "lt", event_date_str, "Pre event")
+        tilejson_pre = self._get_tilejson(search_id_pre, asset)
+
+        search_id_post = self._register_mosaic(bbox, "ge", event_date_str, "Post event")
+        tilejson_post = self._get_tilejson(search_id_post, asset)
+
+        bounds = tilejson_pre["bounds"]
+        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
+
+        left_layer = ipyleaflet.TileLayer(
+            url=tilejson_pre["tiles"][0],
+            min_zoom=tilejson_pre["minzoom"],
+            max_zoom=tilejson_pre["maxzoom"],
+            bounds=[[bounds[1], bounds[0]], [bounds[3], bounds[2]]],
+        )
+
+        bounds_post = tilejson_post["bounds"]
+        right_layer = ipyleaflet.TileLayer(
+            url=tilejson_post["tiles"][0],
+            min_zoom=tilejson_post["minzoom"],
+            max_zoom=tilejson_post["maxzoom"],
+            bounds=[[bounds_post[1], bounds_post[0]], [bounds_post[3], bounds_post[2]]],
+        )
+
+        m.add_control(
+            ipyleaflet.SplitMapControl(left_layer=left_layer, right_layer=right_layer)
+        )
+        return m
+
     def pre_event_mosaic_map(
         self,
         bbox: list[float],
@@ -534,64 +424,161 @@ class MaxarCollection(BaseModel):
         tilejson = self._get_tilejson(search_id, asset)
         return self._make_map_from_tilejson(tilejson, map_kwargs)
 
-    def mosaic_split_map(
+    def _register_mosaic(
         self,
         bbox: list[float],
-        event_date: datetime,
-        asset: str = "visual",
-        *,
-        map_kwargs: dict | None = None,
-    ) -> ipyleaflet.Map:
-        """Create a split-view map comparing pre- and post-event mosaics side by side.
+        datetime_op: str,
+        event_date_str: str,
+        name: str,
+    ) -> str:
+        """
+        Register a mosaic search with filtering conditions and return the search ID.
 
-        Uses ipyleaflet.SplitMapControl to let users swipe between pre-post imagery.
+        This helper function submits a search request to the Raster API endpoint using
+        CQL2 filters to define temporal and spatial constraints. The resulting search is
+        registered on the server, and its unique search ID is returned.
 
         Parameters:
         -----------
         bbox : list[float]
-            Bounding box [minX, minY, maxX, maxY] to define the area of interest.
+            The spatial bounding box of the area of interest in [minX, minY, maxX, maxY]
+            format.
 
-        event_date : datetime
-            The event date to split imagery around.
+        datetime_op : str
+            The comparison operator for filtering by datetime (e.g., "lt" for less than,
+            "ge" for greater than or equal).
 
-        asset : str, default="visual"
-            The imagery asset to visualize in both views.
+        event_date_str : str
+            The datetime string to use for filtering (e.g., "2023-02-06T00:00:00Z").
+
+        name : str
+            Name to associate with the registered mosaic search for identification.
+
+        Returns:
+        --------
+        str
+            Unique ID of the registered mosaic search to retrieve associated tile data.
+        """
+        response = httpx.post(
+            f"{RASTER_ENDPOINT}/searches/register",
+            data=json.dumps({
+                "filter-lang": "cql2-json",
+                "filter": {
+                    "op": "and",
+                    "args": [
+                        {
+                            "op": "in",
+                            "args": [{"property": "collection"}, [self.collection_id]],
+                        },
+                        {
+                            "op": datetime_op,
+                            "args": [{"property": "datetime"}, event_date_str],
+                        },
+                    ],
+                },
+                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
+                "metadata": {"name": name, "bounds": bbox},
+            }),
+        )
+        return response.json()["id"]
+
+    def _get_tilejson(self, search_id: str, asset: str) -> dict:
+        """Fetch a TileJSON metadata dictionary for a given search ID and asset type.
+
+        This helper sends a GET request to the raster service to retrieve TileJSON
+        metadata, which describes how to render tiles for a mosaic or item (including
+        tile URLs, bounds, zoom levels, etc.).
+
+        Parameters:
+        -----------
+        search_id : str
+            ID of the registered mosaic or item search obtained from `_register_mosaic`.
+
+        asset : str
+            The asset type to render (e.g., "visual", "analytic", etc.).
+
+        Returns:
+        --------
+        dict
+            A dictionary conforming to the TileJSON format, including tile URLs, bounds,
+            min/max zoom, and other rendering metadata.
+        """
+        return httpx.get(
+            f"{RASTER_ENDPOINT}/searches/{search_id}/{TILEJSON_ENDPOINT}",
+            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
+        ).json()
+
+    def _make_map_from_tilejson(
+        self, tilejson: dict, map_kwargs: dict | None
+    ) -> ipyleaflet.Map:
+        """
+        Create an ipyleaflet.Map instance using a TileJSON dictionary.
+
+        This helper sets up an interactive map centered on the TileJSON's bounding box
+        and adds a TileLayer based on the provided tile URL and zoom levels. Optionally,
+        it allows for user-provided map customization via `map_kwargs`.
+
+        Parameters:
+        -----------
+        tilejson : dict
+            A TileJSON dictionary containing metadata such as tile URL templates,
+            bounds, and min/max zoom levels. Typically returned by `_get_tilejson`.
 
         map_kwargs : dict | None
-            Optional keyword arguments to customize the map display.
+            Optional keyword arguments to override default map configuration
+            (e.g., `{"zoom": 14}` or `{"center": [lat, lon]}`).
 
         Returns:
         --------
         ipyleaflet.Map
-            An interactive split map showing pre- and post-event imagery.
+            An interactive ipyleaflet map with the tile layer rendered according to the
+            TileJSON specification.
         """
-        event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        bounds = tilejson["bounds"]
 
-        search_id_pre = self._register_mosaic(bbox, "lt", event_date_str, "Pre event")
-        tilejson_pre = self._get_tilejson(search_id_pre, asset)
-
-        search_id_post = self._register_mosaic(bbox, "ge", event_date_str, "Post event")
-        tilejson_post = self._get_tilejson(search_id_post, asset)
-
-        bounds = tilejson_pre["bounds"]
         m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
 
-        left_layer = ipyleaflet.TileLayer(
-            url=tilejson_pre["tiles"][0],
-            min_zoom=tilejson_pre["minzoom"],
-            max_zoom=tilejson_pre["maxzoom"],
-            bounds=[[bounds[1], bounds[0]], [bounds[3], bounds[2]]],
-        )
-
-        bounds_post = tilejson_post["bounds"]
-        right_layer = ipyleaflet.TileLayer(
-            url=tilejson_post["tiles"][0],
-            min_zoom=tilejson_post["minzoom"],
-            max_zoom=tilejson_post["maxzoom"],
-            bounds=[[bounds_post[1], bounds_post[0]], [bounds_post[3], bounds_post[2]]],
-        )
-
-        m.add_control(
-            ipyleaflet.SplitMapControl(left_layer=left_layer, right_layer=right_layer)
+        m.add_layer(
+            ipyleaflet.TileLayer(
+                url=tilejson["tiles"][0],
+                min_zoom=tilejson["minzoom"],
+                max_zoom=tilejson["maxzoom"],
+                bounds=[[bounds[1], bounds[0]], [bounds[3], bounds[2]]],
+            )
         )
         return m
+
+    def _set_default_map_kwargs(
+        self, bounds: list[float], zoom: int = 10, overrides: dict | None = None
+    ) -> dict[str, Any]:
+        """Create map keyword arguments for ipyleaflet.Map with optional user overrides.
+
+        Computes the map center based on a bounding box and applies a default zoom and
+        layout.
+
+        If `overrides` are provided, they will take precedence over the defaults (e.g.
+        to override zoom level or center).
+
+        Parameters:
+        -----------
+        bounds : list[float]
+            Bounding box [minX, minY, maxX, maxY] used to compute map center.
+
+        zoom : int, default=10
+            The default zoom level to use if not overridden.
+
+        overrides : dict | None
+            Optional dictionary of keyword arguments to override the defaults (e.g.
+            {"zoom": 14}).
+
+        Returns:
+        --------
+        dict[str, Any]
+            Dictionary of keyword arguments for initializing an ipyleaflet.Map instance.
+        """
+        default_kwargs = {
+            "center": [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2],
+            "zoom": zoom,
+            "layout": MAP_LAYOUT,
+        }
+        return {**default_kwargs, **(overrides or {})}
