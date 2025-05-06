@@ -294,6 +294,90 @@ class MaxarCollection(BaseModel):
         m.add_layer(tiles)
         return m
 
+    def _register_mosaic(
+        self,
+        bbox: list[float],
+        datetime_op: str,
+        event_date_str: str,
+        name: str,
+    ) -> str:
+        """
+        Register a mosaic search with filtering conditions and return the search ID.
+
+        This helper function submits a search request to the Raster API endpoint using
+        CQL2 filters to define temporal and spatial constraints. The resulting search is
+        registered on the server, and its unique search ID is returned.
+
+        Parameters:
+        -----------
+        bbox : list[float]
+            The spatial bounding box of the area of interest in [minX, minY, maxX, maxY]
+            format.
+
+        datetime_op : str
+            The comparison operator for filtering by datetime (e.g., "lt" for less than,
+            "ge" for greater than or equal).
+
+        event_date_str : str
+            The datetime string to use for filtering (e.g., "2023-02-06T00:00:00Z").
+
+        name : str
+            Name to associate with the registered mosaic search for identification.
+
+        Returns:
+        --------
+        str
+            Unique ID of the registered mosaic search to retrieve associated tile data.
+        """
+        response = httpx.post(
+            f"{RASTER_ENDPOINT}/searches/register",
+            data=json.dumps({
+                "filter-lang": "cql2-json",
+                "filter": {
+                    "op": "and",
+                    "args": [
+                        {
+                            "op": "in",
+                            "args": [{"property": "collection"}, [self.collection_id]],
+                        },
+                        {
+                            "op": datetime_op,
+                            "args": [{"property": "datetime"}, event_date_str],
+                        },
+                    ],
+                },
+                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
+                "metadata": {"name": name, "bounds": bbox},
+            }),
+        )
+        return response.json()["id"]
+
+    def _get_tilejson(self, search_id: str, asset: str) -> dict:
+        """Fetch a TileJSON metadata dictionary for a given search ID and asset type.
+
+        This helper sends a GET request to the raster service to retrieve TileJSON
+        metadata, which describes how to render tiles for a mosaic or item (including
+        tile URLs, bounds, zoom levels, etc.).
+
+        Parameters:
+        -----------
+        search_id : str
+            ID of the registered mosaic or item search obtained from `_register_mosaic`.
+
+        asset : str
+            The asset type to render (e.g., "visual", "analytic", etc.).
+
+        Returns:
+        --------
+        dict
+            A dictionary conforming to the TileJSON format, including tile URLs, bounds,
+            min/max zoom, and other rendering metadata.
+        """
+        return httpx.get(
+            f"{RASTER_ENDPOINT}/searches/{search_id}/{TILEJSON_ENDPOINT}",
+            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
+        ).json()
+
     def mosaic_split_map(
         self,
         bbox: list[float],
@@ -423,90 +507,6 @@ class MaxarCollection(BaseModel):
         search_id = self._register_mosaic(bbox, "ge", event_date_str, "Post event")
         tilejson = self._get_tilejson(search_id, asset)
         return self._make_map_from_tilejson(tilejson, map_kwargs)
-
-    def _register_mosaic(
-        self,
-        bbox: list[float],
-        datetime_op: str,
-        event_date_str: str,
-        name: str,
-    ) -> str:
-        """
-        Register a mosaic search with filtering conditions and return the search ID.
-
-        This helper function submits a search request to the Raster API endpoint using
-        CQL2 filters to define temporal and spatial constraints. The resulting search is
-        registered on the server, and its unique search ID is returned.
-
-        Parameters:
-        -----------
-        bbox : list[float]
-            The spatial bounding box of the area of interest in [minX, minY, maxX, maxY]
-            format.
-
-        datetime_op : str
-            The comparison operator for filtering by datetime (e.g., "lt" for less than,
-            "ge" for greater than or equal).
-
-        event_date_str : str
-            The datetime string to use for filtering (e.g., "2023-02-06T00:00:00Z").
-
-        name : str
-            Name to associate with the registered mosaic search for identification.
-
-        Returns:
-        --------
-        str
-            Unique ID of the registered mosaic search to retrieve associated tile data.
-        """
-        response = httpx.post(
-            f"{RASTER_ENDPOINT}/searches/register",
-            data=json.dumps({
-                "filter-lang": "cql2-json",
-                "filter": {
-                    "op": "and",
-                    "args": [
-                        {
-                            "op": "in",
-                            "args": [{"property": "collection"}, [self.collection_id]],
-                        },
-                        {
-                            "op": datetime_op,
-                            "args": [{"property": "datetime"}, event_date_str],
-                        },
-                    ],
-                },
-                "sortby": [{"field": "tile:clouds_percent", "direction": "asc"}],
-                "metadata": {"name": name, "bounds": bbox},
-            }),
-        )
-        return response.json()["id"]
-
-    def _get_tilejson(self, search_id: str, asset: str) -> dict:
-        """Fetch a TileJSON metadata dictionary for a given search ID and asset type.
-
-        This helper sends a GET request to the raster service to retrieve TileJSON
-        metadata, which describes how to render tiles for a mosaic or item (including
-        tile URLs, bounds, zoom levels, etc.).
-
-        Parameters:
-        -----------
-        search_id : str
-            ID of the registered mosaic or item search obtained from `_register_mosaic`.
-
-        asset : str
-            The asset type to render (e.g., "visual", "analytic", etc.).
-
-        Returns:
-        --------
-        dict
-            A dictionary conforming to the TileJSON format, including tile URLs, bounds,
-            min/max zoom, and other rendering metadata.
-        """
-        return httpx.get(
-            f"{RASTER_ENDPOINT}/searches/{search_id}/{TILEJSON_ENDPOINT}",
-            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
-        ).json()
 
     def _make_map_from_tilejson(
         self, tilejson: dict, map_kwargs: dict | None
