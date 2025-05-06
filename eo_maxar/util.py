@@ -12,25 +12,7 @@ from eo_maxar.constants import (
     STAC_ENDPOINT,
     TILEJSON_ENDPOINT,
 )
-
-
-class Collection(BaseModel):
-    """Represents selected information from a single Maxar STAC collection."""
-
-    id: str
-    title: str
-    description: str | None
-    extent: dict[str, Any]
-    links: list[dict[str, Any]] | None
-
-
-class Item(BaseModel):
-    """Represents selected information from a single STAC item from a collection."""
-
-    id: str
-    bbox: list[float]
-    properties: dict
-    assets: dict[str, Any]
+from eo_maxar.models import Collection, Item
 
 
 def get_collections() -> list[str]:
