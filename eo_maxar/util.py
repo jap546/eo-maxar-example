@@ -44,7 +44,7 @@ class MaxarCollection(BaseModel):
         Maxar Open Data collection to work with.
     """
 
-    collection_id: str | None
+    collection_id: str
 
     def get_collection_info(self) -> Collection:
         """Retrieve metadata for a specific Maxar STAC collection.
