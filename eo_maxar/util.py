@@ -152,7 +152,7 @@ class MaxarCollection(BaseModel):
         )
         return response.json()["id"]
 
-    def _get_tilejson(self, search_id: str, asset: str) -> dict:
+    def _get_tilejson(self, search_id: str) -> dict:
         """Fetch a TileJSON metadata dictionary for a given search ID and asset type.
 
         This helper sends a GET request to the raster service to retrieve TileJSON
@@ -175,14 +175,13 @@ class MaxarCollection(BaseModel):
         """
         return httpx.get(
             f"{RASTER_ENDPOINT}/searches/{search_id}/{TILEJSON_ENDPOINT}",
-            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
+            params={"assets": "visual", "minzoom": 12, "maxzoom": 22},
         ).json()
 
     def mosaic_split_map(
         self,
         bbox: list[float],
         event_date: datetime,
-        asset: str = "visual",
         *,
         map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
@@ -198,9 +197,6 @@ class MaxarCollection(BaseModel):
         event_date : datetime
             The event date to split imagery around.
 
-        asset : str, default="visual"
-            The imagery asset to visualize in both views.
-
         map_kwargs : dict | None
             Optional keyword arguments to customize the map display.
 
@@ -212,10 +208,10 @@ class MaxarCollection(BaseModel):
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         search_id_pre = self._register_mosaic(bbox, "lt", event_date_str, "Pre event")
-        tilejson_pre = self._get_tilejson(search_id_pre, asset)
+        tilejson_pre = self._get_tilejson(search_id_pre)
 
         search_id_post = self._register_mosaic(bbox, "ge", event_date_str, "Post event")
-        tilejson_post = self._get_tilejson(search_id_post, asset)
+        tilejson_post = self._get_tilejson(search_id_post)
 
         bounds = tilejson_pre["bounds"]
         m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
@@ -426,7 +422,6 @@ class MaxarCollection(BaseModel):
         self,
         bbox: list[float],
         event_date: datetime,
-        asset: str = "visual",
         *,
         map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
@@ -440,9 +435,6 @@ class MaxarCollection(BaseModel):
         event_date : datetime
             The datetime used to filter images taken before the event.
 
-        asset : str, default="visual"
-            The imagery asset to render.
-
         map_kwargs : dict | None
             Optional keyword arguments to customize the map display.
 
@@ -453,14 +445,13 @@ class MaxarCollection(BaseModel):
         """
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         search_id = self._register_mosaic(bbox, "lt", event_date_str, "Pre event")
-        tilejson = self._get_tilejson(search_id, asset)
+        tilejson = self._get_tilejson(search_id)
         return self._make_map_from_tilejson(tilejson, map_kwargs)
 
     def post_event_mosaic_map(
         self,
         bbox: list[float],
         event_date: datetime,
-        asset: str = "visual",
         *,
         map_kwargs: dict | None = None,
     ) -> ipyleaflet.Map:
@@ -474,9 +465,6 @@ class MaxarCollection(BaseModel):
         event_date : datetime
             The datetime used to filter images taken on or after the event.
 
-        asset : str, default="visual"
-            The imagery asset to render.
-
         map_kwargs : dict | None
             Optional keyword arguments to customize the map display.
 
@@ -487,7 +475,7 @@ class MaxarCollection(BaseModel):
         """
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         search_id = self._register_mosaic(bbox, "ge", event_date_str, "Post event")
-        tilejson = self._get_tilejson(search_id, asset)
+        tilejson = self._get_tilejson(search_id)
         return self._make_map_from_tilejson(tilejson, map_kwargs)
 
     def _make_map_from_tilejson(
