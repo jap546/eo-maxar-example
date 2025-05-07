@@ -94,65 +94,6 @@ class MaxarCollection(BaseModel):
             x += 1
         return item_results
 
-    def pre_post_map(
-        self,
-        items: list[dict],
-        event_date: datetime,
-        map_kwargs: dict | None = None,
-    ) -> ipyleaflet.Map:
-        """Create a map to visualize STAC items styled by pre-post event.
-
-        Items earlier than the event date are shown in blue; those on/after the event
-        date are red.
-
-        Parameters:
-        -----------
-        items : list[dict]
-            A list of STAC item features to be visualized.
-
-        event_date : datetime
-            The event date used to split pre- and post-event imagery.
-
-        map_kwargs : dict | None
-            Optional map customization parameters.
-
-        Returns:
-        --------
-        ipyleaflet.Map
-            A map showing the items colored by time relative to the event.
-        """
-        collection_info = self.get_collection_info()
-
-        bounds = collection_info.extent["spatial"]["bbox"][0]
-
-        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
-
-        def style_function(feature: dict) -> dict:
-            """Style the features based on the datetime of the item.
-
-            Returns:
-            --------
-            dict: styling to be applied for each bbox geometry.
-            """
-            d = datetime.strptime(
-                feature["properties"]["datetime"], "%Y-%m-%dT%H:%M:%SZ"
-            )
-            return {
-                "fillOpacity": 0.5,
-                "weight": 0.1,
-                "fillColor": "#0000ff" if d < event_date else "#ff0000",
-            }
-
-        geo_json = ipyleaflet.GeoJSON(
-            data={
-                "type": "FeatureCollection",
-                "features": items,
-            },
-            style_callback=style_function,
-        )
-        m.add_layer(geo_json)
-        return m
-
     def _register_mosaic(
         self,
         bbox: list[float],
@@ -297,6 +238,65 @@ class MaxarCollection(BaseModel):
         m.add_control(
             ipyleaflet.SplitMapControl(left_layer=left_layer, right_layer=right_layer)
         )
+        return m
+
+    def pre_post_map(
+        self,
+        items: list[dict],
+        event_date: datetime,
+        map_kwargs: dict | None = None,
+    ) -> ipyleaflet.Map:
+        """Create a map to visualize STAC items styled by pre-post event.
+
+        Items earlier than the event date are shown in blue; those on/after the event
+        date are red.
+
+        Parameters:
+        -----------
+        items : list[dict]
+            A list of STAC item features to be visualized.
+
+        event_date : datetime
+            The event date used to split pre- and post-event imagery.
+
+        map_kwargs : dict | None
+            Optional map customization parameters.
+
+        Returns:
+        --------
+        ipyleaflet.Map
+            A map showing the items colored by time relative to the event.
+        """
+        collection_info = self.get_collection_info()
+
+        bounds = collection_info.extent["spatial"]["bbox"][0]
+
+        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
+
+        def style_function(feature: dict) -> dict:
+            """Style the features based on the datetime of the item.
+
+            Returns:
+            --------
+            dict: styling to be applied for each bbox geometry.
+            """
+            d = datetime.strptime(
+                feature["properties"]["datetime"], "%Y-%m-%dT%H:%M:%SZ"
+            )
+            return {
+                "fillOpacity": 0.5,
+                "weight": 0.1,
+                "fillColor": "#0000ff" if d < event_date else "#ff0000",
+            }
+
+        geo_json = ipyleaflet.GeoJSON(
+            data={
+                "type": "FeatureCollection",
+                "features": items,
+            },
+            style_callback=style_function,
+        )
+        m.add_layer(geo_json)
         return m
 
     def collection_bbox_map(
