@@ -46,54 +46,6 @@ class MaxarCollection(BaseModel):
 
     collection_id: str
 
-    def get_collection_info(self) -> Collection:
-        """Retrieve metadata for a specific Maxar STAC collection.
-
-        Sends a GET request to the STAC API to fetch collection-level metadata,
-        including spatial/temporal extent, description, and links. The response
-        is parsed and validated into a `Collection` Pydantic model.
-
-        Returns:
-        --------
-        Collection
-            Validated Collection object containing metadata for a specified collection.
-        """
-        response = httpx.get(f"{STAC_ENDPOINT}/collections/{self.collection_id}")
-        collection_data = response.json()
-        return Collection.model_validate(collection_data)
-
-    def get_collection_items(self) -> list[Item]:
-        """
-        Retrieve all STAC items for the current collection, handling pagination.
-
-        Sends repeated GET requests to the STAC API to retrieve all items (features)
-        belonging to the specified collection. Handles pagination automatically using
-        the 'next' link in the response.
-
-        Returns:
-        --------
-        list[Item]
-            List of Item dictionaries representing individual assets in the collection.
-        """
-        item_results = []
-
-        url = f"{STAC_ENDPOINT}/collections/{self.collection_id}/items"
-        x = 0
-        while True:
-            if x == 0:
-                items = httpx.get(url, params={"limit": 100}).json()
-            else:
-                items = httpx.get(url).json()
-
-            item_results.extend(items["features"])
-            next_link = list(filter(lambda link: link["rel"] == "next", items["links"]))
-            if next_link:
-                url = next_link[0]["href"]
-            else:
-                break
-            x += 1
-        return item_results
-
     def _register_mosaic(
         self,
         bbox: list[float],
@@ -235,6 +187,54 @@ class MaxarCollection(BaseModel):
             ipyleaflet.SplitMapControl(left_layer=left_layer, right_layer=right_layer)
         )
         return m
+
+    def get_collection_info(self) -> Collection:
+        """Retrieve metadata for a specific Maxar STAC collection.
+
+        Sends a GET request to the STAC API to fetch collection-level metadata,
+        including spatial/temporal extent, description, and links. The response
+        is parsed and validated into a `Collection` Pydantic model.
+
+        Returns:
+        --------
+        Collection
+            Validated Collection object containing metadata for a specified collection.
+        """
+        response = httpx.get(f"{STAC_ENDPOINT}/collections/{self.collection_id}")
+        collection_data = response.json()
+        return Collection.model_validate(collection_data)
+
+    def get_collection_items(self) -> list[Item]:
+        """
+        Retrieve all STAC items for the current collection, handling pagination.
+
+        Sends repeated GET requests to the STAC API to retrieve all items (features)
+        belonging to the specified collection. Handles pagination automatically using
+        the 'next' link in the response.
+
+        Returns:
+        --------
+        list[Item]
+            List of Item dictionaries representing individual assets in the collection.
+        """
+        item_results = []
+
+        url = f"{STAC_ENDPOINT}/collections/{self.collection_id}/items"
+        x = 0
+        while True:
+            if x == 0:
+                items = httpx.get(url, params={"limit": 100}).json()
+            else:
+                items = httpx.get(url).json()
+
+            item_results.extend(items["features"])
+            next_link = list(filter(lambda link: link["rel"] == "next", items["links"]))
+            if next_link:
+                url = next_link[0]["href"]
+            else:
+                break
+            x += 1
+        return item_results
 
     def pre_post_map(
         self,
