@@ -94,87 +94,6 @@ class MaxarCollection(BaseModel):
             x += 1
         return item_results
 
-    def collection_bbox_map(
-        self,
-        map_kwargs: dict | None = None,
-    ) -> ipyleaflet.Map:
-        """Create an interactive map displaying the bounding box of the collection.
-
-        Each bounding box defined in the collection's spatial extent is rendered as a
-        polygon.
-
-        The main bbox is styled with a dashed outline to differentiate it from others.
-
-        Parameters:
-        -----------
-        map_kwargs : dict | None
-            Optional keyword arguments to customize the ipyleaflet.Map (e.g. center).
-
-        Returns:
-        --------
-        ipyleaflet.Map
-            A map with bounding box geometries visualized.
-        """
-        collection_info = self.get_collection_info()
-        geojson = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [
-                            [
-                                [bbox[0], bbox[1]],
-                                [bbox[2], bbox[1]],
-                                [bbox[2], bbox[3]],
-                                [bbox[0], bbox[3]],
-                                [bbox[0], bbox[1]],
-                            ]
-                        ],
-                    },
-                    "properties": {},
-                }
-                for bbox in collection_info.extent["spatial"]["bbox"]
-            ],
-        }
-
-        bounds = collection_info.extent["spatial"]["bbox"][0]
-
-        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
-
-        def style_function(feature: dict) -> dict:
-            """Takes feature dictionary and styles by main bbox vs item.
-
-            Returns:
-            --------
-            dict: styling to be applied for each bbox geometry.
-            """
-            if feature["geometry"]["coordinates"] == [
-                [
-                    [bounds[0], bounds[1]],
-                    [bounds[2], bounds[1]],
-                    [bounds[2], bounds[3]],
-                    [bounds[0], bounds[3]],
-                    [bounds[0], bounds[1]],
-                ]
-            ]:
-                return {
-                    "fillOpacity": 0,
-                    "weight": 2,
-                    "color": "#000000",
-                    "dashArray": "10,5",
-                }
-            return {
-                "fillOpacity": 0.1,
-                "weight": 0.5,
-                "fillColor": "#0000ff",
-            }
-
-        geo_json = ipyleaflet.GeoJSON(data=geojson, style_callback=style_function)
-        m.add_layer(geo_json)
-        return m
-
     def pre_post_map(
         self,
         items: list[dict],
@@ -232,48 +151,6 @@ class MaxarCollection(BaseModel):
             style_callback=style_function,
         )
         m.add_layer(geo_json)
-        return m
-
-    def single_cog_map(
-        self,
-        item_id: str,
-        asset: str = "visual",
-        map_kwargs: dict | None = None,
-    ) -> ipyleaflet.Map:
-        """Create a map displaying a single Cloud Optimized GeoTIFF asset by item ID.
-
-        Parameters:
-        -----------
-        item_id : str
-            The STAC item ID to retrieve imagery for.
-
-        asset : str, default="visual"
-            The asset type to visualize (e.g., "visual", "analytic").
-
-        map_kwargs : dict | None
-            Optional map customization parameters.
-
-        Returns:
-        --------
-        ipyleaflet.Map
-            Map centered on item's bounds with the selected asset shown as a tile layer.
-        """
-        tilejson = httpx.get(
-            f"{RASTER_ENDPOINT}/collections/{self.collection_id}/items/{item_id}/{TILEJSON_ENDPOINT}",
-            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
-        ).json()
-
-        bounds = tilejson["bounds"]
-
-        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
-
-        tiles = ipyleaflet.TileLayer(
-            url=tilejson["tiles"][0],
-            min_zoom=tilejson["minzoom"],
-            max_zoom=tilejson["maxzoom"],
-            bounds=[[bounds[1], bounds[0]], [bounds[3], bounds[2]]],
-        )
-        m.add_layer(tiles)
         return m
 
     def _register_mosaic(
@@ -420,6 +297,129 @@ class MaxarCollection(BaseModel):
         m.add_control(
             ipyleaflet.SplitMapControl(left_layer=left_layer, right_layer=right_layer)
         )
+        return m
+
+    def collection_bbox_map(
+        self,
+        map_kwargs: dict | None = None,
+    ) -> ipyleaflet.Map:
+        """Create an interactive map displaying the bounding box of the collection.
+
+        Each bounding box defined in the collection's spatial extent is rendered as a
+        polygon.
+
+        The main bbox is styled with a dashed outline to differentiate it from others.
+
+        Parameters:
+        -----------
+        map_kwargs : dict | None
+            Optional keyword arguments to customize the ipyleaflet.Map (e.g. center).
+
+        Returns:
+        --------
+        ipyleaflet.Map
+            A map with bounding box geometries visualized.
+        """
+        collection_info = self.get_collection_info()
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [bbox[0], bbox[1]],
+                                [bbox[2], bbox[1]],
+                                [bbox[2], bbox[3]],
+                                [bbox[0], bbox[3]],
+                                [bbox[0], bbox[1]],
+                            ]
+                        ],
+                    },
+                    "properties": {},
+                }
+                for bbox in collection_info.extent["spatial"]["bbox"]
+            ],
+        }
+
+        bounds = collection_info.extent["spatial"]["bbox"][0]
+
+        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
+
+        def style_function(feature: dict) -> dict:
+            """Takes feature dictionary and styles by main bbox vs item.
+
+            Returns:
+            --------
+            dict: styling to be applied for each bbox geometry.
+            """
+            if feature["geometry"]["coordinates"] == [
+                [
+                    [bounds[0], bounds[1]],
+                    [bounds[2], bounds[1]],
+                    [bounds[2], bounds[3]],
+                    [bounds[0], bounds[3]],
+                    [bounds[0], bounds[1]],
+                ]
+            ]:
+                return {
+                    "fillOpacity": 0,
+                    "weight": 2,
+                    "color": "#000000",
+                    "dashArray": "10,5",
+                }
+            return {
+                "fillOpacity": 0.1,
+                "weight": 0.5,
+                "fillColor": "#0000ff",
+            }
+
+        geo_json = ipyleaflet.GeoJSON(data=geojson, style_callback=style_function)
+        m.add_layer(geo_json)
+        return m
+
+    def single_cog_map(
+        self,
+        item_id: str,
+        asset: str = "visual",
+        map_kwargs: dict | None = None,
+    ) -> ipyleaflet.Map:
+        """Create a map displaying a single Cloud Optimized GeoTIFF asset by item ID.
+
+        Parameters:
+        -----------
+        item_id : str
+            The STAC item ID to retrieve imagery for.
+
+        asset : str, default="visual"
+            The asset type to visualize (e.g., "visual", "analytic").
+
+        map_kwargs : dict | None
+            Optional map customization parameters.
+
+        Returns:
+        --------
+        ipyleaflet.Map
+            Map centered on item's bounds with the selected asset shown as a tile layer.
+        """
+        tilejson = httpx.get(
+            f"{RASTER_ENDPOINT}/collections/{self.collection_id}/items/{item_id}/{TILEJSON_ENDPOINT}",
+            params={"assets": asset, "minzoom": 12, "maxzoom": 22},
+        ).json()
+
+        bounds = tilejson["bounds"]
+
+        m = ipyleaflet.Map(**self._set_default_map_kwargs(bounds, overrides=map_kwargs))
+
+        tiles = ipyleaflet.TileLayer(
+            url=tilejson["tiles"][0],
+            min_zoom=tilejson["minzoom"],
+            max_zoom=tilejson["maxzoom"],
+            bounds=[[bounds[1], bounds[0]], [bounds[3], bounds[2]]],
+        )
+        m.add_layer(tiles)
         return m
 
     def pre_event_mosaic_map(
