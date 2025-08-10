@@ -2,16 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-DEFAULT_DATA_DIR = Path("data")
+TOP_FOLDER = Path(__file__).resolve().parent.parent
 
 
 class Paths:
-    DEFAULT_DATA_DIR = DEFAULT_DATA_DIR
-    RAW_DATA_DIR: Path = DEFAULT_DATA_DIR / "raw"
+    TOP_FOLDER = TOP_FOLDER
+    DATA_DIR: Path = TOP_FOLDER / "data"
 
-
-STAC_ENDPOINT = "http://localhost:8081"
-RASTER_ENDPOINT = "http://localhost:8082"
-TILEJSON_ENDPOINT = "WebMercatorQuad/tilejson.json"
 
 MAP_LAYOUT = {"height": "700px"}
