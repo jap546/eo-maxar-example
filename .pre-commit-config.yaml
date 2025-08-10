@@ -1,22 +1,53 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: "v5.0.0"
-    hooks:
-      - id: check-case-conflict
-      - id: check-merge-conflict
-      - id: check-toml
-      - id: check-yaml
-      - id: check-json
-        exclude: ^.devcontainer/devcontainer.json
-      - id: pretty-format-json
-        exclude: ^.devcontainer/devcontainer.json
-        args: [--autofix, --no-sort-keys]
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: "v5.0.0"
+  hooks:
+  - id: check-case-conflict
+  - id: check-merge-conflict
+  - id: check-toml
+  - id: check-yaml
+  - id: check-json
+    exclude: ^.devcontainer/devcontainer.json
+  - id: pretty-format-json
+    exclude: ^.devcontainer/devcontainer.json
+    args: [ --autofix, --no-sort-keys ]
+  - id: end-of-file-fixer
+  - id: trailing-whitespace
+  - id: check-added-large-files
+    name: Check for files larger than 7 MB
+    args: [ "--maxkb=7000" ]
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.11.5"
-    hooks:
-      - id: ruff
-        args: [--exit-non-zero-on-fix]
-      - id: ruff-format
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: "v0.11.5"
+  hooks:
+  - id: ruff
+    args: [ --exit-non-zero-on-fix ]
+  - id: ruff-format
+
+- repo: https://github.com/pre-commit/mirrors-mypy
+  rev: v1.3.0
+  hooks:
+  - id: mypy
+    files: ^(nox/|tests/)
+    args: [ --config-file=.github/linters/.mypy.ini ]
+
+- repo: https://github.com/Yelp/detect-secrets
+  rev: v1.4.0
+  hooks:
+    - id: detect-secrets
+      name: 'detect-secrets'
+      args: ['--exclude-files', '.*\.ipynb$', ]
+    - id: detect-secrets
+      name: 'detect-secrets-jupyter'
+      args: ['--exclude-files', '.*[^i][^p][^y][^n][^b]$', '--exclude-lines', '"(hash|id|image/\w+)":.*', ]
+
+- repo: local
+  hooks:
+  - id: detect-ip
+    name: Detect IP addresses
+    entry: '^(?!0\.0\.0\.0$)(?!127\.0\.0\.1$)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
+    language: pygrep
+    exclude: '^static/|\.lock'
+    files: .
