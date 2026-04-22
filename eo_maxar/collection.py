@@ -1,5 +1,6 @@
 from datetime import datetime
 from functools import cached_property
+from typing import Literal
 
 import ipyleaflet
 
@@ -9,9 +10,7 @@ from eo_maxar.visualiser import MapVisualizer
 
 
 class MaxarCollection:
-    """
-    A high-level interface to interact with a specific Maxar STAC collection.
-    """
+    """A high-level interface to interact with a specific Maxar STAC collection."""
 
     def __init__(
         self,
@@ -22,6 +21,22 @@ class MaxarCollection:
         self.collection_id = collection_id
         self._client = client or APIClient()
         self._visualizer = visualizer or MapVisualizer()
+
+    @classmethod
+    def create(cls, collection_id: str) -> "MaxarCollection":
+        """Create a MaxarCollection with default client and visualizer.
+
+        Args:
+            collection_id: The STAC collection identifier.
+
+        Returns:
+            A fully wired MaxarCollection instance.
+        """
+        return cls(
+            collection_id=collection_id,
+            client=APIClient(),
+            visualizer=MapVisualizer(),
+        )
 
     @cached_property
     def info(self) -> STACCollection:
@@ -46,22 +61,32 @@ class MaxarCollection:
         )
 
     def single_cog_map(
-        self, item_id: str, asset: str = "visual", map_kwargs: dict | None = None
+        self, item_id: str, asset: str | None = None, map_kwargs: dict | None = None
     ) -> ipyleaflet.Map:
         """Creates a map displaying a single Cloud Optimized GeoTIFF (COG)."""
         tilejson = self._client.get_item_tilejson(self.collection_id, item_id, asset)
         return self._visualizer.create_tile_map(tilejson, map_kwargs)
 
     def _get_mosaic_tilejson(
-        self, bbox: list[float], event_date: datetime, period: str
+        self,
+        bbox: list[float],
+        event_date: datetime,
+        period: Literal["pre", "post"],
     ) -> TileJSON:
-        """Helper to register and fetch TileJSON for a mosaic."""
+        """Helper to register and fetch TileJSON for a mosaic.
+
+        Args:
+            bbox: Bounding box [min_lon, min_lat, max_lon, max_lat].
+            event_date: The event date to filter imagery by.
+            period: ``"pre"`` for images before the event, ``"post"`` for after.
+
+        Returns:
+            TileJSON metadata for the registered mosaic.
+        """
         if period == "pre":
             op, name = "lt", "Pre-event"
-        elif period == "post":
-            op, name = "ge", "Post-event"
         else:
-            raise ValueError("Period must be 'pre' or 'post'.")  # noqa: TRY003, RUF100
+            op, name = "ge", "Post-event"
 
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         filter_args = {"op": op, "args": [{"property": "datetime"}, event_date_str]}
