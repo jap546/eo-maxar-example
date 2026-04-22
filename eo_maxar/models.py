@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SpatialExtent(BaseModel):
@@ -34,6 +34,8 @@ class STACLink(BaseModel):
 class STACCollection(BaseModel):
     """Represents a STAC collection with detailed, validated fields."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
     title: str
     description: str | None = None
@@ -43,9 +45,7 @@ class STACCollection(BaseModel):
 
 
 class STACItem(BaseModel):
-    """
-    Represents a STAC item, conforming to the GeoJSON Feature spec.
-    """
+    """Represents a STAC item, conforming to the GeoJSON Feature spec."""
 
     type: str = "Feature"
     stac_version: str
@@ -57,6 +57,14 @@ class STACItem(BaseModel):
     links: list[STACLink]
     collection: str
 
+    @field_validator("bbox")
+    @classmethod
+    def validate_bbox(cls, v: list[float]) -> list[float]:
+        """Ensure bbox contains exactly 4 coordinates."""
+        if len(v) != 4:
+            raise ValueError(f"bbox must have exactly 4 elements, got {len(v)}")
+        return v
+
 
 class TileJSON(BaseModel):
     """Represents the TileJSON response from the raster API."""
@@ -67,6 +75,14 @@ class TileJSON(BaseModel):
     minzoom: int
     maxzoom: int
     bounds: list[float]
+
+    @field_validator("bounds")
+    @classmethod
+    def validate_bounds(cls, v: list[float]) -> list[float]:
+        """Ensure bounds contains exactly 4 coordinates."""
+        if len(v) != 4:
+            raise ValueError(f"bounds must have exactly 4 elements, got {len(v)}")
+        return v
 
 
 class MosaicRegisterResponse(BaseModel):
