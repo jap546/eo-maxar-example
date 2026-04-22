@@ -4,19 +4,36 @@ from typing import Any
 import ipyleaflet
 
 from eo_maxar.config import settings
+from eo_maxar.geojson import bboxes_to_feature_collection
 from eo_maxar.models import STACCollection, STACItem, TileJSON
+
+# Map style constants
+_MAIN_BBOX_STYLE: dict[str, Any] = {
+    "fillOpacity": 0,
+    "weight": 2,
+    "color": "black",
+    "dashArray": "5, 5",
+}
+_FEATURE_STYLE: dict[str, Any] = {"fillOpacity": 0.1, "weight": 1, "color": "blue"}
+_PRE_EVENT_COLOR = "blue"
+_POST_EVENT_COLOR = "red"
+_PRE_POST_BASE_STYLE: dict[str, Any] = {"fillOpacity": 0.5, "weight": 0.2}
 
 
 class MapVisualizer:
     """Handles the creation of ipyleaflet maps for visualizing geospatial data."""
 
     def _create_base_map(
-        self, bounds: list[float], zoom: int = 8, overrides: dict | None = None
+        self,
+        bounds: list[float],
+        zoom: int | None = None,
+        overrides: dict | None = None,
     ) -> ipyleaflet.Map:
         """Creates a default ipyleaflet map centered on the given bounds."""
-        default_kwargs = {
-            "center": [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2],
-            "zoom": zoom,
+        min_lon, min_lat, max_lon, max_lat = bounds
+        default_kwargs: dict[str, Any] = {
+            "center": [(min_lat + max_lat) / 2, (min_lon + max_lon) / 2],
+            "zoom": zoom if zoom is not None else settings.default_zoom,
             "layout": settings.map_layout,
         }
         if overrides:
@@ -64,38 +81,14 @@ class MapVisualizer:
         main_bbox = collection.extent.spatial.bbox[0]
         m = self._create_base_map(main_bbox, overrides=map_kwargs)
 
-        feature_collection = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [
-                            [
-                                [bbox[0], bbox[1]],
-                                [bbox[2], bbox[1]],
-                                [bbox[2], bbox[3]],
-                                [bbox[0], bbox[3]],
-                                [bbox[0], bbox[1]],
-                            ]
-                        ],
-                    },
-                    "properties": {"is_main": bbox == main_bbox},
-                }
-                for bbox in collection.extent.spatial.bbox
-            ],
-        }
+        feature_collection = bboxes_to_feature_collection(
+            collection.extent.spatial.bbox, main_bbox
+        )
 
         def style_callback(feature: dict) -> dict:
             if feature["properties"]["is_main"]:
-                return {
-                    "fillOpacity": 0,
-                    "weight": 2,
-                    "color": "black",
-                    "dashArray": "5, 5",
-                }
-            return {"fillOpacity": 0.1, "weight": 1, "color": "blue"}
+                return _MAIN_BBOX_STYLE
+            return _FEATURE_STYLE
 
         geo_json_layer = ipyleaflet.GeoJSON(
             data=feature_collection, style_callback=style_callback
@@ -111,7 +104,7 @@ class MapVisualizer:
     ) -> ipyleaflet.Map:
         """Creates a map styling STAC item footprints based on an event date."""
         if not items:
-            raise ValueError("Item list cannot be empty.")  # noqa: RUF100, TRY003
+            raise ValueError("Item list cannot be empty.")
 
         m = self._create_base_map(items[0].bbox, overrides=map_kwargs)
 
@@ -119,13 +112,10 @@ class MapVisualizer:
             item_dt = datetime.fromisoformat(
                 feature["properties"]["datetime"].replace("Z", "+00:00")
             )
-
-            style: dict[str, Any] = {"fillOpacity": 0.5, "weight": 0.2}
-
-            if item_dt < event_date:
-                style["fillColor"] = "blue"  # Pre-event
-            else:
-                style["fillColor"] = "red"  # Post-event
+            style: dict[str, Any] = dict(_PRE_POST_BASE_STYLE)
+            style["fillColor"] = (
+                _PRE_EVENT_COLOR if item_dt < event_date else _POST_EVENT_COLOR
+            )
             return style
 
         geojson_data = {
