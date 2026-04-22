@@ -30,6 +30,12 @@ class Settings(BaseSettings):
 
     map_layout: dict = {"height": "700px"}
 
+    default_zoom: int = 8
+    min_zoom: int = 12
+    max_zoom: int = 22
+    default_asset: str = "visual"
+    pagination_limit: int = 100
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
