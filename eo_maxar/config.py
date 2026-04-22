@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     postgres_port: int = 5439
     postgres_dbname: str = "postgis"
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def database_dsn(self) -> str:
         """Constructs the database DSN from individual components."""

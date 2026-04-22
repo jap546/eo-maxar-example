@@ -52,13 +52,10 @@ py-modules = ["eo_maxar"]
 dev = [
     "pytest>=7.2.0",
     "pre-commit>=2.20.0",
-    "mypy>=0.991",
+    "pyrefly>=0.17.0",
     "ruff>=0.11.5",
     "nox>=2025.5.1",
 ]
-
-[tool.mypy]
-config_file = ".github/linters/.mypy.ini"
 
 [tool.ruff]
 target-version = "py312"
