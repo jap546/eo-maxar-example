@@ -104,7 +104,7 @@ class APIClient:
     def get_tilejson(self, search_id: str, asset: str | None = None) -> TileJSON:
         """Fetch TileJSON metadata for a registered mosaic search."""
         url = f"{settings.raster_api_url}/searches/{search_id}/{settings.tilejson_path}"
-        params = {
+        params: dict[str, str | int] = {
             "assets": asset or settings.default_asset,
             "minzoom": settings.min_zoom,
             "maxzoom": settings.max_zoom,
@@ -121,7 +121,7 @@ class APIClient:
             f"{settings.raster_api_url}/collections/{collection_id}"
             f"/items/{item_id}/{settings.tilejson_path}"
         )
-        params = {
+        params: dict[str, str | int] = {
             "assets": asset or settings.default_asset,
             "minzoom": settings.min_zoom,
             "maxzoom": settings.max_zoom,
