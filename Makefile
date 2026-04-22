@@ -46,20 +46,20 @@ init: check-env up install setup-db
 up: check-env
 	@echo "$(PURPLE)--- Starting Docker Services ---$(ENDC)"
 	@docker compose up -d
-	@echo "$(GREEN)✅ Services are running in detached mode.$(ENDC)"
+	@echo "$(GREEN)Services are running in detached mode.$(ENDC)"
 
 .PHONY: setup-db
 setup-db:
 	@echo "$(PURPLE)--- Setting up Database ---$(ENDC)"
 	@echo "$(BLUE) > Loading data into pgSTAC... This may take a moment.$(ENDC)"
 	@uv run setup
-	@echo "$(GREEN)✅ Database setup complete.$(ENDC)"
+	@echo "$(GREEN)Database setup complete.$(ENDC)"
 
 .PHONY: down
 down:
 	@echo "$(PURPLE)--- Stopping Docker Services ---$(ENDC)"
 	@docker compose down
-	@echo "$(GREEN)✅ Services stopped.$(ENDC)"
+	@echo "$(GREEN)Services stopped.$(ENDC)"
 
 .PHONY: logs
 logs:
@@ -68,7 +68,7 @@ logs:
 
 .PHONY: rebuild
 rebuild: clean init
-	@echo "$(GREEN)✅ Project rebuilt successfully!$(ENDC)"
+	@echo "$(GREEN)Project rebuilt successfully!$(ENDC)"
 
 
 # ==================================================================================== #
@@ -82,11 +82,11 @@ install: check-env
 	@uv sync --all-groups
 	@echo "$(BLUE) > Installing pre-commit hooks...$(ENDC)"
 	@uvx pre-commit install
-	@echo "$(GREEN)✅ Install complete! Activate with: source .venv/bin/activate$(ENDC)"
+	@echo "$(GREEN)Install complete! Activate with: source .venv/bin/activate$(ENDC)"
 
 .PHONY: check
 check:
-	@echo "$(PURPLE)--- 🧐 Running Code Quality Checks ---$(ENDC)"
+	@echo "$(PURPLE)--- Running Code Quality Checks ---$(ENDC)"
 	@echo "$(BLUE) > Checking lock file...$(ENDC)"
 	@uv lock --locked
 	@echo "$(BLUE) > Linting code with pre-commit...$(ENDC)"
@@ -95,7 +95,7 @@ check:
 	@uvx mypy --config-file .github/linters/.mypy.ini .
 	@echo "$(BLUE) > Running noxfile...$(ENDC)"
 	@uvx nox
-	@echo "$GREEN)✅ All checks passed!$(ENDC)"
+	@echo "$GREEN)All checks passed!$(ENDC)"
 
 # ==================================================================================== #
 # HOUSEKEEPING
@@ -103,15 +103,7 @@ check:
 
 .PHONY: clean
 clean: down ## Stop services and remove all build artifacts and data.
-	@echo "$(PURPLE)--- 🧹 Cleaning Project ---$(ENDC)"
+	@echo "$(PURPLE)--- Cleaning Project ---$(ENDC)"
 	@echo "$(BLUE) > Removing Docker volumes, build artifacts, and caches...$(ENDC)"
 	@rm -rf .pgdata dist .mypy_cache .pytest_cache .ruff_cache
-	@echo "$(GREEN)✅ Clean complete.$(ENDC)"
-
-.PHONY: help
-help: ## 🙋 Display this help message.
-	@echo "$(BOLD)Makefile Commands:$(ENDC)"
-	@uvx python -c "import re; \
-	[[print(f'  {m[0].replace(':', '')[:20]:<22} {m[1]}') for m in re.findall(r'^([a-zA-Z_-]+):.*?## (.*)$$', open(makefile).read(), re.M)] for makefile in ('$(MAKEFILE_LIST)').strip().split()]"
-
-.DEFAULT_GOAL := help
+	@echo "$(GREEN)Clean complete.$(ENDC)"
