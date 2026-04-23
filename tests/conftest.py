@@ -1,8 +1,5 @@
 """Shared fixtures for the test suite."""
 
-import json
-from unittest.mock import MagicMock
-
 import pytest
 
 SAMPLE_COLLECTION_DATA = {
@@ -66,17 +63,6 @@ SAMPLE_ITEMS_PAGE_DATA = {
     "features": [SAMPLE_ITEM_DATA],
     "links": [],
 }
-
-
-def make_mock_response(data: dict, status_code: int = 200) -> MagicMock:
-    """Create a mock httpx response with JSON data."""
-    mock = MagicMock()
-    mock.status_code = status_code
-    mock.text = json.dumps(data)
-    mock.content = mock.text.encode()
-    mock.json.return_value = data
-    mock.raise_for_status.return_value = None
-    return mock
 
 
 @pytest.fixture
