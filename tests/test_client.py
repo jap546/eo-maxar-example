@@ -50,9 +50,7 @@ class TestGetAllCollections:
     def test_handles_pagination(self) -> None:
         page1 = {
             "collections": [{"id": "collection-1"}],
-            "links": [
-                {"rel": "next", "href": f"{settings.stac_api_url}/collections?page=2"}
-            ],
+            "links": [{"rel": "next", "href": f"{settings.stac_api_url}/collections?page=2"}],
         }
         page2 = {
             "collections": [{"id": "collection-2"}],
@@ -64,9 +62,7 @@ class TestGetAllCollections:
                 return httpx.Response(200, json=page2)
             return httpx.Response(200, json=page1)
 
-        respx.get(url__startswith=f"{settings.stac_api_url}/collections").mock(
-            side_effect=get_page
-        )
+        respx.get(url__startswith=f"{settings.stac_api_url}/collections").mock(side_effect=get_page)
 
         with APIClient() as client:
             result = client.get_all_collections()
@@ -113,9 +109,7 @@ class TestGetCollectionItems:
         page1 = {
             "type": "FeatureCollection",
             "features": [SAMPLE_ITEM_DATA],
-            "links": [
-                {"rel": "next", "href": f"{settings.stac_api_url}/items?token=xyz"}
-            ],
+            "links": [{"rel": "next", "href": f"{settings.stac_api_url}/items?token=xyz"}],
         }
         page2 = {
             "type": "FeatureCollection",
@@ -126,9 +120,7 @@ class TestGetCollectionItems:
         req1 = respx.get(
             url__startswith=f"{settings.stac_api_url}/collections/turkey-earthquake-2023/items"
         ).respond(json=page1)
-        req2 = respx.get(url__startswith=f"{settings.stac_api_url}/items").respond(
-            json=page2
-        )
+        req2 = respx.get(url__startswith=f"{settings.stac_api_url}/items").respond(json=page2)
 
         with APIClient() as client:
             result = client.get_collection_items("turkey-earthquake-2023")
@@ -144,9 +136,9 @@ class TestGetCollectionItems:
 class TestRegisterMosaic:
     @respx.mock
     def test_returns_search_id(self) -> None:
-        route = respx.post(
-            url__startswith=f"{settings.raster_api_url}/searches/register"
-        ).respond(json=SAMPLE_MOSAIC_REGISTER_DATA)
+        route = respx.post(url__startswith=f"{settings.raster_api_url}/searches/register").respond(
+            json=SAMPLE_MOSAIC_REGISTER_DATA
+        )
         with APIClient() as client:
             result = client.register_mosaic(
                 collection_id="turkey-earthquake-2023",
@@ -163,9 +155,9 @@ class TestRegisterMosaic:
 
     @respx.mock
     def test_payload_structure(self) -> None:
-        route = respx.post(
-            url__startswith=f"{settings.raster_api_url}/searches/register"
-        ).respond(json=SAMPLE_MOSAIC_REGISTER_DATA)
+        route = respx.post(url__startswith=f"{settings.raster_api_url}/searches/register").respond(
+            json=SAMPLE_MOSAIC_REGISTER_DATA
+        )
         with APIClient() as client:
             client.register_mosaic(
                 collection_id="turkey-earthquake-2023",

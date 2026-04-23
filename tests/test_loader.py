@@ -30,9 +30,7 @@ def loader(settings: Settings) -> DataLoader:
 
 class TestItemTypeFromFilename:
     def test_collections_filename(self) -> None:
-        assert (
-            DataLoader._item_type_from_filename("collections.json.zip") == "collections"
-        )
+        assert DataLoader._item_type_from_filename("collections.json.zip") == "collections"
 
     def test_items_filename(self) -> None:
         assert DataLoader._item_type_from_filename("items.json.zip") == "items"
@@ -80,9 +78,7 @@ class TestLoadDataToPgstac:
         assert first_call[1] == "load"
         assert first_call[2] == "collections"
 
-    def test_raises_on_nonzero_returncode(
-        self, loader: DataLoader, tmp_path: Path
-    ) -> None:
+    def test_raises_on_nonzero_returncode(self, loader: DataLoader, tmp_path: Path) -> None:
         (tmp_path / "collections.json").write_text("{}")
 
         mock_result = MagicMock()

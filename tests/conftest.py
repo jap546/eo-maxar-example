@@ -10,9 +10,7 @@ SAMPLE_COLLECTION_DATA = {
         "spatial": {"bbox": [[36.0, 37.0, 37.5, 37.5]]},
         "temporal": {"interval": [["2023-02-06T00:00:00Z", None]]},
     },
-    "links": [
-        {"rel": "self", "href": "http://localhost:8081/collections/turkey-earthquake"}
-    ],
+    "links": [{"rel": "self", "href": "http://localhost:8081/collections/turkey-earthquake"}],
     "item_assets": {},
 }
 

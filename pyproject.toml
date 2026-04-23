@@ -60,7 +60,7 @@ dev = [
 
 [tool.ruff]
 target-version = "py312"
-line-length = 88
+line-length = 100
 fix = true
 
 [tool.ruff.lint]

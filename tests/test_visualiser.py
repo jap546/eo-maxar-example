@@ -73,9 +73,7 @@ class TestCollectionFootprintsStyleCallback:
         import ipyleaflet
 
         m = visualizer.create_collection_footprints_map(collection)
-        layer = next(
-            layer for layer in m.layers if isinstance(layer, ipyleaflet.GeoJSON)
-        )
+        layer = next(layer for layer in m.layers if isinstance(layer, ipyleaflet.GeoJSON))
 
         main_feature = {"properties": {"is_main": True}}
         other_feature = {"properties": {"is_main": False}}
@@ -87,16 +85,12 @@ class TestCollectionFootprintsStyleCallback:
 class TestPrePostEventStyleCallback:
     """Test the date-based colour logic in create_pre_post_event_map."""
 
-    def test_pre_event_item_gets_blue(
-        self, visualizer: MapVisualizer, item: STACItem
-    ) -> None:
+    def test_pre_event_item_gets_blue(self, visualizer: MapVisualizer, item: STACItem) -> None:
         import ipyleaflet
 
         event_date = datetime(2023, 2, 6, tzinfo=UTC)
         m = visualizer.create_pre_post_event_map([item], event_date)
-        layer = next(
-            layer for layer in m.layers if isinstance(layer, ipyleaflet.GeoJSON)
-        )
+        layer = next(layer for layer in m.layers if isinstance(layer, ipyleaflet.GeoJSON))
 
         pre_feature = {"properties": {"datetime": "2023-02-05T10:00:00Z"}}
         post_feature = {"properties": {"datetime": "2023-02-07T10:00:00Z"}}
@@ -131,17 +125,13 @@ class TestCreateTileMap:
 
         m = visualizer.create_tile_map(tilejson)
         assert isinstance(m, ipyleaflet.Map)
-        tile_layers = [
-            layer for layer in m.layers if isinstance(layer, ipyleaflet.TileLayer)
-        ]
+        tile_layers = [layer for layer in m.layers if isinstance(layer, ipyleaflet.TileLayer)]
         # Should have the OSM base layer + our custom tile layer
         assert len(tile_layers) >= 1
 
 
 class TestCreateCollectionFootprintsMap:
-    def test_returns_map(
-        self, visualizer: MapVisualizer, collection: STACCollection
-    ) -> None:
+    def test_returns_map(self, visualizer: MapVisualizer, collection: STACCollection) -> None:
         import ipyleaflet
 
         m = visualizer.create_collection_footprints_map(collection)
