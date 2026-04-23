@@ -69,7 +69,7 @@ class TestLoadDataToPgstac:
 
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = ""
+        mock_result.stdout = "some output"
 
         with patch("subprocess.run", return_value=mock_result) as mock_run:
             loader._load_data_to_pgstac()
@@ -103,7 +103,46 @@ class TestLoadDataToPgstac:
         mock_run.assert_not_called()
 
 
-class TestHealthCheck:
+class TestRun:
+    def test_run_calls_all_steps(self, loader: DataLoader) -> None:
+        with (
+            patch.object(loader, "_unzip_files") as mock_unzip,
+            patch.object(loader, "_load_data_to_pgstac") as mock_load,
+            patch.object(loader, "_configure_pgstac_context") as mock_config,
+        ):
+            loader.run()
+            mock_unzip.assert_called_once()
+            mock_load.assert_called_once()
+            mock_config.assert_called_once()
+
+
+class TestConfigurePgstacContext:
+    def test_executes_sql_query(self, loader: DataLoader) -> None:
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.__enter__.return_value = mock_conn
+        mock_conn.__exit__.return_value = False
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_conn.cursor.return_value.__exit__.return_value = False
+
+        with patch("psycopg.connect", return_value=mock_conn):
+            loader._configure_pgstac_context()
+
+        mock_cursor.execute.assert_called_once()
+        assert "pgstac_settings" in str(mock_cursor.execute.call_args[0][0])
+
+    def test_raises_on_db_error(self, loader: DataLoader) -> None:
+        import psycopg as psycopg_lib
+
+        with (
+            patch(
+                "psycopg.connect",
+                side_effect=psycopg_lib.Error("connection error"),
+            ),
+            pytest.raises(psycopg_lib.Error),
+        ):
+            loader._configure_pgstac_context()
+
     def test_returns_true_when_db_reachable(self, loader: DataLoader) -> None:
         mock_conn = MagicMock()
         mock_conn.__enter__ = lambda s: mock_conn
