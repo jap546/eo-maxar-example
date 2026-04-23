@@ -37,11 +37,7 @@ class APIClient:
                 data = response.json()
                 collection_ids.extend(c["id"] for c in data.get("collections", []))
                 next_link = next(
-                    (
-                        link["href"]
-                        for link in data.get("links", [])
-                        if link["rel"] == "next"
-                    ),
+                    (link["href"] for link in data.get("links", []) if link["rel"] == "next"),
                     None,
                 )
                 url = next_link

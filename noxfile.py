@@ -1,7 +1,7 @@
 import nox
 
 # Global options
-nox.options.sessions = ("ruff", "mypy", "bandit")
+nox.options.sessions = ("ruff", "pyrefly", "bandit")
 nox.options.reuse_existing_virtualenvs = True
 SILENT_DEFAULT = True
 SILENT_CODE_MODIFIERS = False
@@ -23,12 +23,13 @@ def ruff(session: nox.Session) -> None:
     _run_code_modifier(session, "ruff", "format", *args)
 
 
-@nox.session(python=PYTHON_VERSIONS, tags=["typecheck"])
-def mypy(session: nox.Session) -> None:
-    """Verify types using mypy."""
-    args = session.posargs or (PACKAGE_LOCATION,)
-    _install(session, "mypy", "types-requests", "typing-extensions")
-    _run(session, "mypy", "--config-file", ".github/linters/.mypy.ini", *args)
+@nox.session(python=LATEST_PYTHON, tags=["typecheck"])
+def pyrefly(session: nox.Session) -> None:
+    """Verify types using pyrefly."""
+    args = session.posargs or ("eo_maxar",)
+    _install(session, ".")
+    # session.install(".")
+    _run(session, "pyrefly", "check", *args)
 
 
 @nox.session(python=PYTHON_VERSIONS, tags=["security"])

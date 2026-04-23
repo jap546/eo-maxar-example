@@ -1,11 +1,13 @@
 """Tests for APIClient."""
 
-from unittest.mock import MagicMock, patch
+import json
 
 import httpx
 import pytest
+import respx
 
 from eo_maxar.client import APIClient
+from eo_maxar.config import settings
 from eo_maxar.models import STACCollection, STACItem, TileJSON
 from tests.conftest import (
     SAMPLE_COLLECTION_DATA,
@@ -14,7 +16,6 @@ from tests.conftest import (
     SAMPLE_ITEMS_PAGE_DATA,
     SAMPLE_MOSAIC_REGISTER_DATA,
     SAMPLE_TILEJSON_DATA,
-    make_mock_response,
 )
 
 
@@ -22,7 +23,8 @@ class TestAPIClientContextManager:
     def test_context_manager_closes_client(self) -> None:
         with APIClient() as client:
             assert client.http_client is not None
-        # After exiting, the httpx client should be closed (no exception raised)
+            assert not client.http_client.is_closed
+        assert client.http_client.is_closed
 
     def test_enter_returns_self(self) -> None:
         client = APIClient()
@@ -31,13 +33,12 @@ class TestAPIClientContextManager:
 
 
 class TestGetAllCollections:
+    @respx.mock
     def test_returns_collection_ids(self) -> None:
-        mock_response = make_mock_response(SAMPLE_COLLECTIONS_LIST_DATA)
-        with patch.object(APIClient, "__init__", lambda self: None):
-            client = APIClient()
-            client.http_client = MagicMock()
-            client.http_client.get.return_value = mock_response
-
+        respx.get(url__startswith=f"{settings.stac_api_url}/collections").respond(
+            json=SAMPLE_COLLECTIONS_LIST_DATA
+        )
+        with APIClient() as client:
             result = client.get_all_collections()
 
         assert result == [
@@ -45,53 +46,46 @@ class TestGetAllCollections:
             "maxar-open-data__morocco-earthquake-2023",
         ]
 
+    @respx.mock
     def test_handles_pagination(self) -> None:
         page1 = {
             "collections": [{"id": "collection-1"}],
-            "links": [
-                {"rel": "next", "href": "http://localhost:8081/collections?page=2"}
-            ],
+            "links": [{"rel": "next", "href": f"{settings.stac_api_url}/collections?page=2"}],
         }
         page2 = {
             "collections": [{"id": "collection-2"}],
             "links": [],
         }
-        with patch.object(APIClient, "__init__", lambda self: None):
-            client = APIClient()
-            client.http_client = MagicMock()
-            client.http_client.get.side_effect = [
-                make_mock_response(page1),
-                make_mock_response(page2),
-            ]
 
+        def get_page(request):
+            if "page=2" in str(request.url):
+                return httpx.Response(200, json=page2)
+            return httpx.Response(200, json=page1)
+
+        respx.get(url__startswith=f"{settings.stac_api_url}/collections").mock(side_effect=get_page)
+
+        with APIClient() as client:
             result = client.get_all_collections()
 
         assert result == ["collection-1", "collection-2"]
-        assert client.http_client.get.call_count == 2
 
+    @respx.mock
     def test_raises_on_request_error(self) -> None:
-        with patch.object(APIClient, "__init__", lambda self: None):
-            client = APIClient()
-            mock_http = MagicMock()
-            mock_request = MagicMock()
-            mock_request.url = "http://localhost:8081/collections"
-            mock_http.get.side_effect = httpx.RequestError(
-                "Connection refused", request=mock_request
-            )
-            client.http_client = mock_http
+        respx.get(url__startswith=f"{settings.stac_api_url}/collections").mock(
+            side_effect=httpx.RequestError("Connection refused")
+        )
 
-            with pytest.raises(httpx.RequestError):
-                client.get_all_collections()
+        with APIClient() as client, pytest.raises(httpx.RequestError) as _:
+            client.get_all_collections()
 
 
 class TestGetCollection:
+    @respx.mock
     def test_returns_validated_collection(self) -> None:
-        mock_response = make_mock_response(SAMPLE_COLLECTION_DATA)
-        with patch.object(APIClient, "__init__", lambda self: None):
-            client = APIClient()
-            client.http_client = MagicMock()
-            client.http_client.get.return_value = mock_response
-
+        respx.get(
+            url__startswith=f"{settings.stac_api_url}/collections/maxar-open-data__turkey-earthquake-2023"
+        ).respond(json=SAMPLE_COLLECTION_DATA)
+        with APIClient() as client:
             result = client.get_collection("maxar-open-data__turkey-earthquake-2023")
 
         assert isinstance(result, STACCollection)
@@ -99,55 +93,53 @@ class TestGetCollection:
 
 
 class TestGetCollectionItems:
+    @respx.mock
     def test_returns_all_items_single_page(self) -> None:
-        mock_response = make_mock_response(SAMPLE_ITEMS_PAGE_DATA)
-        with patch.object(APIClient, "__init__", lambda self: None):
-            client = APIClient()
-            client.http_client = MagicMock()
-            client.http_client.get.return_value = mock_response
-
+        respx.get(
+            url__startswith=f"{settings.stac_api_url}/collections/turkey-earthquake-2023/items"
+        ).respond(json=SAMPLE_ITEMS_PAGE_DATA)
+        with APIClient() as client:
             result = client.get_collection_items("turkey-earthquake-2023")
 
         assert len(result) == 1
         assert isinstance(result[0], STACItem)
 
+    @respx.mock
     def test_pagination_passes_limit_only_on_first_request(self) -> None:
         page1 = {
             "type": "FeatureCollection",
             "features": [SAMPLE_ITEM_DATA],
-            "links": [{"rel": "next", "href": "http://localhost:8081/items?token=xyz"}],
+            "links": [{"rel": "next", "href": f"{settings.stac_api_url}/items?token=xyz"}],
         }
         page2 = {
             "type": "FeatureCollection",
             "features": [SAMPLE_ITEM_DATA],
             "links": [],
         }
-        with patch.object(APIClient, "__init__", lambda self: None):
-            client = APIClient()
-            client.http_client = MagicMock()
-            client.http_client.get.side_effect = [
-                make_mock_response(page1),
-                make_mock_response(page2),
-            ]
 
+        req1 = respx.get(
+            url__startswith=f"{settings.stac_api_url}/collections/turkey-earthquake-2023/items"
+        ).respond(json=page1)
+        req2 = respx.get(url__startswith=f"{settings.stac_api_url}/items").respond(json=page2)
+
+        with APIClient() as client:
             result = client.get_collection_items("turkey-earthquake-2023")
 
         assert len(result) == 2
-        # First call should include limit param, second should not
-        first_call_kwargs = client.http_client.get.call_args_list[0][1]
-        second_call_kwargs = client.http_client.get.call_args_list[1][1]
-        assert first_call_kwargs.get("params") is not None
-        assert second_call_kwargs.get("params") is None
+        assert req1.called
+        assert req2.called
+
+        assert "limit=" in str(req1.calls[0].request.url)
+        assert "limit=" not in str(req2.calls[0].request.url)
 
 
 class TestRegisterMosaic:
+    @respx.mock
     def test_returns_search_id(self) -> None:
-        mock_response = make_mock_response(SAMPLE_MOSAIC_REGISTER_DATA)
-        with patch.object(APIClient, "__init__", lambda self: None):
-            client = APIClient()
-            client.http_client = MagicMock()
-            client.http_client.post.return_value = mock_response
-
+        route = respx.post(url__startswith=f"{settings.raster_api_url}/searches/register").respond(
+            json=SAMPLE_MOSAIC_REGISTER_DATA
+        )
+        with APIClient() as client:
             result = client.register_mosaic(
                 collection_id="turkey-earthquake-2023",
                 bbox=[36.0, 37.0, 36.5, 37.5],
@@ -159,14 +151,14 @@ class TestRegisterMosaic:
             )
 
         assert result == "abc123"
+        assert route.called
 
+    @respx.mock
     def test_payload_structure(self) -> None:
-        mock_response = make_mock_response(SAMPLE_MOSAIC_REGISTER_DATA)
-        with patch.object(APIClient, "__init__", lambda self: None):
-            client = APIClient()
-            client.http_client = MagicMock()
-            client.http_client.post.return_value = mock_response
-
+        route = respx.post(url__startswith=f"{settings.raster_api_url}/searches/register").respond(
+            json=SAMPLE_MOSAIC_REGISTER_DATA
+        )
+        with APIClient() as client:
             client.register_mosaic(
                 collection_id="turkey-earthquake-2023",
                 bbox=[36.0, 37.0, 36.5, 37.5],
@@ -174,35 +166,50 @@ class TestRegisterMosaic:
                 name="Pre-event",
             )
 
-        call_kwargs = client.http_client.post.call_args[1]
-        payload = call_kwargs["json"]
+        assert route.called
+        payload = json.loads(route.calls[0].request.content)
         assert payload["filter-lang"] == "cql2-json"
         assert payload["metadata"]["name"] == "Pre-event"
         assert payload["metadata"]["bounds"] == [36.0, 37.0, 36.5, 37.5]
 
 
 class TestGetTileJSON:
+    @respx.mock
     def test_returns_tilejson(self) -> None:
-        mock_response = make_mock_response(SAMPLE_TILEJSON_DATA)
-        with patch.object(APIClient, "__init__", lambda self: None):
-            client = APIClient()
-            client.http_client = MagicMock()
-            client.http_client.get.return_value = mock_response
-
+        respx.get(
+            url__startswith=f"{settings.raster_api_url}/searches/abc123/{settings.tilejson_path}"
+        ).respond(json=SAMPLE_TILEJSON_DATA)
+        with APIClient() as client:
             result = client.get_tilejson("abc123")
 
         assert isinstance(result, TileJSON)
         assert result.minzoom == 12
         assert result.maxzoom == 22
 
+    @respx.mock
     def test_uses_default_asset_from_settings(self) -> None:
-        mock_response = make_mock_response(SAMPLE_TILEJSON_DATA)
-        with patch.object(APIClient, "__init__", lambda self: None):
-            client = APIClient()
-            client.http_client = MagicMock()
-            client.http_client.get.return_value = mock_response
-
+        route = respx.get(
+            url__startswith=f"{settings.raster_api_url}/searches/abc123/{settings.tilejson_path}"
+        ).respond(json=SAMPLE_TILEJSON_DATA)
+        with APIClient() as client:
             client.get_tilejson("abc123")
 
-        call_kwargs = client.http_client.get.call_args[1]
-        assert call_kwargs["params"]["assets"] == "visual"
+        assert route.called
+        assert "assets=visual" in str(route.calls[0].request.url)
+
+
+class TestGetItemTileJSON:
+    @respx.mock
+    def test_returns_item_tilejson(self) -> None:
+        route = respx.get(
+            url__startswith=f"{settings.raster_api_url}/collections/collection-id/items/item-id/{settings.tilejson_path}"
+        ).respond(json=SAMPLE_TILEJSON_DATA)
+        with APIClient() as client:
+            result = client.get_item_tilejson("collection-id", "item-id", "visual")
+
+        assert isinstance(result, TileJSON)
+        assert result.minzoom == 12
+        assert result.maxzoom == 22
+
+        assert route.called
+        assert "assets=visual" in str(route.calls[0].request.url)

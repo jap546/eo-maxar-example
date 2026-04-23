@@ -85,9 +85,7 @@ class TestTileJSON:
 
     def test_bounds_wrong_length_raises(self) -> None:
         data = {**SAMPLE_TILEJSON_DATA, "bounds": [36.0, 37.0, 36.5]}
-        with pytest.raises(
-            ValidationError, match="bounds must have exactly 4 elements"
-        ):
+        with pytest.raises(ValidationError, match="bounds must have exactly 4 elements"):
             TileJSON.model_validate(data)
 
     def test_optional_name_defaults_to_none(self) -> None:

@@ -27,9 +27,7 @@ def bbox_to_polygon_geometry(bbox: list[float]) -> dict:
     }
 
 
-def bboxes_to_feature_collection(
-    bboxes: list[list[float]], main_bbox: list[float]
-) -> dict:
+def bboxes_to_feature_collection(bboxes: list[list[float]], main_bbox: list[float]) -> dict:
     """Convert a list of bounding boxes to a GeoJSON FeatureCollection.
 
     Args:

@@ -52,13 +52,9 @@ class MaxarCollection:
         """Creates a map showing the footprints of the entire collection."""
         return self._visualizer.create_collection_footprints_map(self.info, map_kwargs)
 
-    def pre_post_map(
-        self, event_date: datetime, map_kwargs: dict | None = None
-    ) -> ipyleaflet.Map:
-        """Creates a map showing pre-event (blue) and post-event (red) item footprints."""  # noqa: E501
-        return self._visualizer.create_pre_post_event_map(
-            self.items, event_date, map_kwargs
-        )
+    def pre_post_map(self, event_date: datetime, map_kwargs: dict | None = None) -> ipyleaflet.Map:
+        """Creates a map showing pre-event (blue) and post-event (red) item footprints."""
+        return self._visualizer.create_pre_post_event_map(self.items, event_date, map_kwargs)
 
     def single_cog_map(
         self, item_id: str, asset: str | None = None, map_kwargs: dict | None = None
@@ -90,9 +86,7 @@ class MaxarCollection:
 
         event_date_str = event_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         filter_args = {"op": op, "args": [{"property": "datetime"}, event_date_str]}
-        search_id = self._client.register_mosaic(
-            self.collection_id, bbox, filter_args, name
-        )
+        search_id = self._client.register_mosaic(self.collection_id, bbox, filter_args, name)
         return self._client.get_tilejson(search_id)
 
     def pre_event_mosaic_map(
@@ -115,6 +109,4 @@ class MaxarCollection:
         """Creates a split-view map comparing pre- and post-event mosaics."""
         pre_tilejson = self._get_mosaic_tilejson(bbox, event_date, "pre")
         post_tilejson = self._get_mosaic_tilejson(bbox, event_date, "post")
-        return self._visualizer.create_split_map(
-            pre_tilejson, post_tilejson, map_kwargs
-        )
+        return self._visualizer.create_split_map(pre_tilejson, post_tilejson, map_kwargs)

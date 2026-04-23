@@ -37,9 +37,7 @@ class Settings(BaseSettings):
     default_asset: str = "visual"
     pagination_limit: int = 100
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
 settings = Settings()

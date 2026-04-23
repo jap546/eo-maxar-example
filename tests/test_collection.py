@@ -19,9 +19,7 @@ def _make_mock_client(
 ) -> MagicMock:
     client = MagicMock()
     if collection_data:
-        client.get_collection.return_value = STACCollection.model_validate(
-            collection_data
-        )
+        client.get_collection.return_value = STACCollection.model_validate(collection_data)
     if item_data:
         client.get_collection_items.return_value = [STACItem.model_validate(item_data)]
     if tilejson_data:
@@ -54,9 +52,7 @@ class TestMaxarCollectionCreate:
 class TestMaxarCollectionInfo:
     def test_info_calls_get_collection(self) -> None:
         mock_client = _make_mock_client(collection_data=SAMPLE_COLLECTION_DATA)
-        collection = MaxarCollection(
-            "maxar-open-data__turkey-earthquake-2023", client=mock_client
-        )
+        collection = MaxarCollection("maxar-open-data__turkey-earthquake-2023", client=mock_client)
         info = collection.info
         assert isinstance(info, STACCollection)
         mock_client.get_collection.assert_called_once_with(
@@ -65,16 +61,88 @@ class TestMaxarCollectionInfo:
 
     def test_info_is_cached(self) -> None:
         mock_client = _make_mock_client(collection_data=SAMPLE_COLLECTION_DATA)
-        collection = MaxarCollection(
-            "maxar-open-data__turkey-earthquake-2023", client=mock_client
-        )
+        collection = MaxarCollection("maxar-open-data__turkey-earthquake-2023", client=mock_client)
         _ = collection.info
         _ = collection.info
         # cached_property means the client method is only called once
         mock_client.get_collection.assert_called_once()
 
+    def test_items_calls_get_collection_items(self) -> None:
+        from tests.conftest import SAMPLE_ITEM_DATA
 
-class TestGetMosaicTilejson:
+        mock_client = _make_mock_client(item_data=SAMPLE_ITEM_DATA)
+        collection = MaxarCollection("test-collection", client=mock_client)
+        items = collection.items
+
+        assert isinstance(items, list)
+        assert len(items) == 1
+        mock_client.get_collection_items.assert_called_once_with("test-collection")
+
+
+class TestMaxarCollectionMaps:
+    def test_collection_bbox_map(self) -> None:
+        mock_client = _make_mock_client(collection_data=SAMPLE_COLLECTION_DATA)
+        collection = MaxarCollection("test-collection", client=mock_client)
+        collection._visualizer.create_collection_footprints_map = MagicMock()
+
+        collection.collection_bbox_map()
+        collection._visualizer.create_collection_footprints_map.assert_called_once_with(
+            collection.info, None
+        )
+
+    def test_pre_post_map(self) -> None:
+        from tests.conftest import SAMPLE_ITEM_DATA
+
+        mock_client = _make_mock_client(item_data=SAMPLE_ITEM_DATA)
+        # Mock items to bypass the client call to get_collection_items
+        collection = MaxarCollection("test-collection", client=mock_client)
+        collection.__dict__["items"] = []  # Just so it doesn't trigger get_collection_items
+        collection._visualizer.create_pre_post_event_map = MagicMock()
+
+        event_date = datetime(2023, 2, 6, tzinfo=UTC)
+        collection.pre_post_map(event_date)
+        collection._visualizer.create_pre_post_event_map.assert_called_once_with(
+            [], event_date, None
+        )
+
+    def test_single_cog_map(self) -> None:
+        mock_client = _make_mock_client(tilejson_data=SAMPLE_TILEJSON_DATA)
+        collection = MaxarCollection("test-collection", client=mock_client)
+        collection._visualizer.create_tile_map = MagicMock()
+
+        collection.single_cog_map("item-1", "visual")
+        mock_client.get_item_tilejson.assert_called_once_with("test-collection", "item-1", "visual")
+        collection._visualizer.create_tile_map.assert_called_once()
+
+    def test_pre_event_mosaic_map(self) -> None:
+        mock_client = _make_mock_client(tilejson_data=SAMPLE_TILEJSON_DATA)
+        collection = MaxarCollection("test-collection", client=mock_client)
+        collection._visualizer.create_tile_map = MagicMock()
+
+        event_date = datetime(2023, 2, 6, tzinfo=UTC)
+        collection.pre_event_mosaic_map([1, 2, 3, 4], event_date, {"zoom": 10})
+        collection._visualizer.create_tile_map.assert_called_once()
+
+    def test_post_event_mosaic_map(self) -> None:
+        mock_client = _make_mock_client(tilejson_data=SAMPLE_TILEJSON_DATA)
+        collection = MaxarCollection("test-collection", client=mock_client)
+        collection._visualizer.create_tile_map = MagicMock()
+
+        event_date = datetime(2023, 2, 6, tzinfo=UTC)
+        collection.post_event_mosaic_map([1, 2, 3, 4], event_date, {"zoom": 10})
+        collection._visualizer.create_tile_map.assert_called_once()
+
+    def test_mosaic_split_map(self) -> None:
+        mock_client = _make_mock_client(tilejson_data=SAMPLE_TILEJSON_DATA)
+        collection = MaxarCollection("test-collection", client=mock_client)
+        collection._visualizer.create_split_map = MagicMock()
+
+        event_date = datetime(2023, 2, 6, tzinfo=UTC)
+        collection.mosaic_split_map([1, 2, 3, 4], event_date, {"zoom": 10})
+        collection._visualizer.create_split_map.assert_called_once()
+        # client.register_mosaic is called twice (pre and post)
+        assert mock_client.register_mosaic.call_count == 2
+
     def test_pre_period_uses_lt_operator(self) -> None:
         mock_client = _make_mock_client(tilejson_data=SAMPLE_TILEJSON_DATA)
         collection = MaxarCollection("test-collection", client=mock_client)
